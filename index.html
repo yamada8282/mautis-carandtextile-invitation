@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>INDUSTRIAL RUN - Advanced</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+        /* CRTモニター風の走査線（少し薄くしました） */
+        #scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #ui-layer {
+            position: absolute;
+            bottom: 30%;
+            width: 100%;
+            text-align: center;
+            color: #fff;
+            font-size: 16px; 
+            font-weight: bold;
+            pointer-events: none;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 20;
+        }
+        /* 速度計 */
+        #speedometer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #0f0, 2px 2px 0 #000;
+            pointer-events: none;
+            z-index: 30;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+        #speedometer .label {
+            font-size: 12px;
+            color: #0a0;
+            margin-bottom: 5px;
+        }
+        #speedometer .speed {
+            font-size: 32px;
+            line-height: 1;
+        }
+        #speedometer .unit {
+            font-size: 14px;
+            color: #0a0;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="scanlines"></div>
+    <div id="ui-layer">
+        <p id="caption">SYSTEM BOOTING...</p>
+    </div>
+    <div id="speedometer">
+        <div class="label">SPEED</div>
+        <div class="speed"><span id="speedValue">0</span><span class="unit">km/h</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // --- 設定エリア ---
+        const renderScale = 0.5; // 画質調整（軽くするために半分で計算して拡大）
+        const roadWidth = 2000;
+        const segmentLength = 200;
+        const rumbleLength = 3;
+        const fieldOfView = 100;
+        const cameraHeight = 1000;
+        const drawDistance = 300; // 描画する距離（遠くまで見せるなら増やす）
+
+        // --- エンジン変数 ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const caption = document.getElementById('caption');
+        const speedValue = document.getElementById('speedValue');
+        
+        let width, height;
+        let position = 0;       
+        let playerX = 0;        
+        let playerZ = 0;
+        let speed = 0;
+        const speedMultiplier = 0.004; // 進むスピード全体の倍率（1より小さくすると遅くなる）
+        const maxSpeed = 12000; // 最高速度
+        const accel = 10;      // 加速度
+        const breaking = -200;  // 減速度
+        const decel = -50;      // 自然減速
+        const offRoadDecel = -200; 
+        const offRoadLimit = 2000; // コースアウト判定幅
+
+        let keyLeft = false;
+        let keyRight = false;
+        let keyFaster = true; // 自動アクセルON
+
+        // 画像
+        const carImg = new Image(); carImg.src = 'car.png'; 
+        const bgImg = new Image(); bgImg.src = 'bg2.png';
+
+        // 道路データ
+        const segments = [];
+        const totalSegments = 1600; // コース全長
+
+        // --- 数学関数（Jake Gordon氏のロジックに基づく） ---
+        function project(p, cameraX, cameraY, cameraZ, cameraDepth) {
+            p.camera.x = (p.world.x || 0) - cameraX;
+            p.camera.y = (p.world.y || 0) - cameraY;
+            p.camera.z = (p.world.z || 0) - cameraZ;
+            p.screen.scale = cameraDepth / p.camera.z;
+            p.screen.x = Math.round((width / 2) + (p.screen.scale * p.camera.x * width / 2));
+            p.screen.y = Math.round((height / 2) - (p.screen.scale * p.camera.y * height / 2));
+            p.screen.w = Math.round((p.screen.scale * roadWidth * width / 2));
+        }
+
+        function easeIn(a, b, percent) { return a + (b - a) * Math.pow(percent, 2); }
+        function easeOut(a, b, percent) { return a + (b - a) * (1 - Math.pow(1 - percent, 2)); }
+        function easeInOut(a, b, percent) { return a + (b - a) * ((-Math.cos(percent * Math.PI) / 2) + 0.5); }
+
+        // --- 道路生成 ---
+        function addSegment(curve) {
+            const n = segments.length;
+            segments.push({
+                index: n,
+                p1: { world: { z: n * segmentLength }, camera: {}, screen: {} },
+                p2: { world: { z: (n + 1) * segmentLength }, camera: {}, screen: {} },
+                curve: curve,
+                color: Math.floor(n / rumbleLength) % 2 ? '#222' : '#111'
+            });
+        }
+
+        function addRoad(enter, hold, leave, curve) {
+            for(let n = 0 ; n < enter ; n++) addSegment(easeIn(0, curve, n/enter));
+            for(let n = 0 ; n < hold  ; n++) addSegment(curve);
+            for(let n = 0 ; n < leave ; n++) addSegment(easeInOut(curve, 0, n/leave));
+        }
+
+        function initRoad() {
+            // ここでコースレイアウトを作ります（長さ, 長さ, 長さ, カーブのきつさ）
+            addRoad(50, 50, 50, 0);       // 直線
+            addRoad(50, 50, 50, 4);       // 右カーブ
+            addRoad(50, 50, 50, -2);      // 左カーブ
+            addRoad(50, 50, 50, 2);       // 右へ
+            addRoad(50, 200, 50, 0);      // 長い直線（ナラティブ用）
+            addRoad(50, 50, 50, -4);      // きつい左
+            addRoad(100, 100, 100, 0);    // 最後は直線
+        }
+
+        // --- 初期化 ---
+        function init() {
+            resize();
+            window.addEventListener('resize', resize);
+            
+            // 操作系
+            window.addEventListener('keydown', e => {
+                if (e.key === 'ArrowLeft') keyLeft = true;
+                if (e.key === 'ArrowRight') keyRight = true;
+            });
+            window.addEventListener('keyup', e => {
+                if (e.key === 'ArrowLeft') keyLeft = false;
+                if (e.key === 'ArrowRight') keyRight = false;
+            });
+            // スマホタッチ
+            canvas.addEventListener('touchstart', e => { 
+                e.preventDefault(); 
+                const touchX = e.touches[0].clientX;
+                if(touchX < width/2) keyLeft = true; else keyRight = true;
+            }, {passive: false});
+            canvas.addEventListener('touchend', e => {
+                e.preventDefault();
+                keyLeft = false; keyRight = false;
+            });
+
+            initRoad();
+            requestAnimationFrame(loop);
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            ctx.imageSmoothingEnabled = false; 
+        }
+
+        // --- 描画ループ ---
+        function render() {
+            ctx.clearRect(0, 0, width, height);
+
+            // 背景描画（パララックス効果付き）
+            // プレイヤーがカーブに入ると背景がズレる処理
+            const parallaxX = playerX * width * 0.1; // 少しズラす
+            if(bgImg.complete) {
+                const bgW = width;
+                const bgH = height;
+                // 簡易的なスクロール：画像を3枚並べてループさせる
+                // (今回は1枚絵を中央固定＋微振動させる簡易版)
+                const scale = Math.max(width / bgImg.width, height / bgImg.height);
+                const x = (width / 2) - (bgImg.width / 2) * scale - (playerX * 100); // ここで背景が動く
+                const y = (height / 2) - (bgImg.height / 2) * scale;
+                ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
+            } else {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0,0,width,height);
+            }
+
+            // 道路の計算と描画
+            const baseSegment = segments[Math.floor(position / segmentLength) % segments.length];
+            const basePercent = (position % segmentLength) / segmentLength;
+            const playerSegment = segments[Math.floor((position + playerZ) / segmentLength) % segments.length];
+            const playerPercent = ((position + playerZ) % segmentLength) / segmentLength;
+            
+            let dx = -(baseSegment.curve * basePercent);
+            let x = 0;
+            const cameraDepth = 1 / Math.tan((fieldOfView / 2) * Math.PI / 180);
+
+            let maxy = height;
+
+            for(let n = 0 ; n < drawDistance ; n++) {
+                const segment = segments[(baseSegment.index + n) % segments.length];
+                
+                // カーブ計算の心臓部
+                segment.p1.camera.x = playerX * roadWidth; 
+                project(segment.p1, (playerX * roadWidth) - x, cameraHeight, position - (segment.index < baseSegment.index ? totalSegments * segmentLength : 0), cameraDepth);
+                
+                // カーブの蓄積
+                x += dx;
+                dx += segment.curve;
+
+                project(segment.p2, (playerX * roadWidth) - x - dx, cameraHeight, position - (segment.index < baseSegment.index ? totalSegments * segmentLength : 0), cameraDepth);
+
+                if(segment.p1.camera.z <= cameraDepth || segment.p2.screen.y >= segment.p1.screen.y || segment.p2.screen.y >= maxy) continue;
+
+                // 描画
+                ctx.fillStyle = segment.color;
+                ctx.beginPath();
+                ctx.moveTo(segment.p1.screen.x - segment.p1.screen.w, segment.p1.screen.y);
+                ctx.lineTo(segment.p2.screen.x - segment.p2.screen.w, segment.p2.screen.y);
+                ctx.lineTo(segment.p2.screen.x + segment.p2.screen.w, segment.p2.screen.y);
+                ctx.lineTo(segment.p1.screen.x + segment.p1.screen.w, segment.p1.screen.y);
+                ctx.fill();
+
+                maxy = segment.p1.screen.y;
+            }
+
+            // 車の描画（常に画面中央下）
+            if(carImg.complete) {
+                const carDisplayWidth = width * 0.4; // 画面幅の20%
+                const ratio = carImg.height / carImg.width;
+                const carDisplayHeight = carDisplayWidth * ratio;
+                const carX = (width / 2) - (carDisplayWidth / 2);
+                
+                // カーブに合わせて車を少し揺らす（簡易スプライトアニメ風）
+                const bounce = Math.sin(Date.now() / 50) * 2; 
+                const carY = height - carDisplayHeight - 20 + bounce;
+
+                ctx.drawImage(carImg, carX, carY, carDisplayWidth, carDisplayHeight);
+            }
+
+            // 字幕更新（距離に基づく）
+            const totalDist = totalSegments * segmentLength;
+            const prog = (position % totalDist) / totalDist;
+            
+            if(prog < 0.1) caption.innerText = "車の中には、誰にも触れられず...";
+            else if(prog < 0.25) caption.innerText = "役目を終えた繊維が息づいている";
+            else if(prog < 0.45) caption.innerText = "工業製品としての「車」を解体し";
+            else if(prog < 0.65) caption.innerText = "人間的な「衣服」へと紡ぎ直す";
+            else if(prog < 0.85) caption.innerText = "WELCOME TO THE EXHIBITION";
+            else caption.innerText = "PRESS TO RESERVE";
+            
+            // 速度計の更新（実際の進行速度をkm/hに変換）
+            const actualSpeed = speed * speedMultiplier * 2.5; // 適切なスケールでkm/hに変換
+            speedValue.textContent = Math.floor(actualSpeed);
+        }
+
+        // --- メインループ ---
+        function loop() {
+            // 速度計算
+            if (keyFaster) speed += accel; else speed += decel;
+            
+            // 現在のセグメントを取得
+            const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
+            
+            // カーブに沿って自然に曲がる力（Jake Gordon方式）
+            // カーブが右なら右に、左なら左に自然に移動する
+            const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.0002;
+            playerX += curveForce;
+            
+            // 左右操作（適度な感度で）
+            const steerSpeed = 0.01; // 操作感度は適度に
+            if (keyLeft)  playerX -= steerSpeed;
+            if (keyRight) playerX += steerSpeed;
+
+            // 速度制限とコースアウト減速
+            if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) speed += offRoadDecel;
+            playerX = Math.max(-2, Math.min(2, playerX));
+            speed = Math.max(0, Math.min(maxSpeed, speed));
+
+            position += speed * speedMultiplier; // 進行速度を全体にゆっくりにする
+            while (position >= totalSegments * segmentLength) position -= totalSegments * segmentLength;
+            while (position < 0) position += totalSegments * segmentLength;
+
+            render();
+            requestAnimationFrame(loop);
+        }
+
+        init();
+    </script>
+</body>
+</html>
