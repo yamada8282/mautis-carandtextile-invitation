@@ -90,6 +90,9 @@
             left: 0;
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
+            min-height: 100vh;
+            min-height: 100dvh;
             background: #fff;
             z-index: 200;
             display: flex;
@@ -97,9 +100,10 @@
             align-items: center;
             justify-content: center;
             color: #000;
-            color: #000;
             font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
             letter-spacing: 0.1em;
+            overflow-y: auto;
+            padding: 20px 0;
         }
 
         #start-screen.hidden {
@@ -230,6 +234,9 @@
             left: 0;
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
+            min-height: 100vh;
+            min-height: 100dvh;
             background: #fff;
             z-index: 100;
             display: none;
@@ -238,6 +245,8 @@
             justify-content: center;
             color: #000;
             font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            overflow-y: auto;
+            padding: 40px 0;
         }
 
         #result-screen.active {
@@ -516,10 +525,12 @@
                 e.preventDefault();
                 const touchX = e.touches[0].clientX;
                 if (touchX < width / 2) keyLeft = true; else keyRight = true;
+                keyFaster = true; // タッチ中は加速
             }, { passive: false });
             canvas.addEventListener('touchend', e => {
                 e.preventDefault();
                 keyLeft = false; keyRight = false;
+                keyFaster = false; // 指を離したら加速停止
             });
 
 
@@ -796,16 +807,17 @@
                 ctx.fillRect(0, 0, width, height);
 
                 // 音量を下げる（変数が存在する場合のみ）
-                // 音量を下げる（変数が存在する場合のみ）
+                // 聴覚的に自然にするため、二乗カーブで減衰させる
+                const volRatio = Math.pow(1.0 - fadeProg, 2);
+
                 if (window.bgm) {
-                    const newVol = Math.max(0, 0.5 * (1.0 - fadeProg));
-                    window.bgm.volume = newVol;
+                    window.bgm.volume = Math.max(0, 0.5 * volRatio);
                 }
                 if (window.narration) {
-                    window.narration.volume = Math.max(0, 1.0 * (1.0 - fadeProg));
+                    window.narration.volume = Math.max(0, 1.0 * volRatio);
                 }
                 if (window.motor) {
-                    window.motor.volume = Math.max(0, 0.6 * (1.0 - fadeProg));
+                    window.motor.volume = Math.max(0, 0.6 * volRatio);
                 }
             }
         }
@@ -890,6 +902,11 @@
         function endGame() {
             gameEnded = true;
             gameState = 'result';
+
+            // 音声を確実に停止
+            if (window.bgm) { window.bgm.pause(); window.bgm.volume = 0; }
+            if (window.narration) { window.narration.pause(); window.narration.volume = 0; }
+            if (window.motor) { window.motor.pause(); window.motor.volume = 0; }
 
             // データを正規化（0-1の範囲に）
             // 蛇行度：実入力の量 + 切り返し回数（「押してるのに反映されない」を防ぐ）
