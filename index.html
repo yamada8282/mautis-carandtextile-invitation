@@ -419,6 +419,7 @@
         // スマホタッチ制御用グローバル変数
         let isMobile = false;
         let lastTouchX = 0;
+        let touchSteerDir = 0; // -1=左, 0=直進, 1=右
 
         // --- ゲーム状態管理 ---
         let gameState = 'start'; // 'start', 'playing', 'result'
@@ -533,7 +534,6 @@
                 if (e.key === 'ArrowRight') keyRight = false;
             });
             // スマホタッチ制御（位置ベース：左側タッチ→左、右側タッチ→右、中央→直進）
-            let touchSteerDir = 0; // -1=左, 0=直進, 1=右
 
             function updateTouchSteering(touchX) {
                 const leftZone = width / 3;
