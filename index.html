@@ -388,7 +388,9 @@
         const segmentLength = 200;
         const rumbleLength = 3;
         const fieldOfView = 100;
-        const cameraHeight = 1000;
+        // カメラの高さ（視点）：数値が小さいほど低い位置（ローアングル）になります
+        // 例: 1000=通常, 600=迫力ある低い視点, 2000=俯瞰
+        let cameraHeight = 300;
         const drawDistance = 300; // 描画する距離（遠くまで見せるなら増やす）
 
         // --- エンジン変数 ---
@@ -445,9 +447,9 @@
         let lastSteerDir = 0;           // -1, 0, 1
 
         // 画像
-        const carImgStraight = new Image(); carImgStraight.src = 'car0.png';
-        const carImgLeft = new Image(); carImgLeft.src = 'car_left.png';
-        const carImgRight = new Image(); carImgRight.src = 'car_right.png';
+        const carImgStraight = new Image(); carImgStraight.src = 'car_straight.png';
+        const carImgLeft = new Image(); carImgLeft.src = 'car2_left.png';
+        const carImgRight = new Image(); carImgRight.src = 'car2_right.png';
 
         // 背景画像は使わないのでコメントアウト
         // const bgImg = new Image(); bgImg.src = 'bg2.png';
@@ -760,7 +762,11 @@
             else if (keyRight) currentCarImg = carImgRight;
 
             if (currentCarImg.complete) {
-                const carDisplayWidth = width * 0.4; // 画面幅の40%
+                // スマホ（ローアングル）なら少し大きく表示して迫力を出す
+                let carScale = 0.4; // PCデフォルト
+                if (cameraHeight < 800) carScale = 0.65; // スマホ用スケール
+
+                const carDisplayWidth = width * carScale;
                 const ratio = currentCarImg.height / currentCarImg.width;
                 const carDisplayHeight = carDisplayWidth * ratio;
                 const carX = (width / 2) - (carDisplayWidth / 2);
@@ -768,6 +774,19 @@
                 // カーブに合わせて車を少し揺らす（簡易スプライトアニメ風）
                 const bounce = Math.sin(Date.now() / 50) * 2;
                 const carY = height - carDisplayHeight - 20 + bounce;
+
+                // 影を描画（接地感を出す）
+                ctx.save();
+                ctx.beginPath();
+                // 車の下に楕円形の影を配置（車と連動して揺れる）
+                const shadowX = carX + carDisplayWidth / 2;
+                const shadowY = height - 80 + bounce; // 車と一緒に揺れる
+                const shadowRadiusX = carDisplayWidth * 0.45;
+                const shadowRadiusY = 35; // 影を大きく
+                ctx.ellipse(shadowX, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+                ctx.fill();
+                ctx.restore();
 
                 ctx.drawImage(currentCarImg, carX, carY, carDisplayWidth, carDisplayHeight);
             }
@@ -882,7 +901,7 @@
                 const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
 
                 // カーブに沿って自然に曲がる力（Jake Gordon方式）
-                const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.0002;
+                const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.000005;
                 playerX += curveForce;
 
                 // 左右操作（適度な感度で）
