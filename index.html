@@ -375,6 +375,13 @@
     </div>
 
     <script>
+        // デバッグ用：エラーを画面に表示
+        window.onerror = function (msg, url, line, col, error) {
+            const caption = document.getElementById('caption');
+            if (caption) caption.innerHTML = `<span style="color:red; font-size:12px;">ERROR: ${msg}<br>Line: ${line}</span>`;
+            return false;
+        };
+
         // --- 設定エリア ---
         const renderScale = 0.5; // 画質調整（軽くするために半分で計算して拡大）
         const roadWidth = 2000;
@@ -406,6 +413,10 @@
         let keyLeft = false;
         let keyRight = false;
         let keyFaster = true; // 自動アクセルON
+
+        // スマホタッチ制御用グローバル変数
+        let isMobile = false;
+        let lastTouchX = 0;
 
         // --- ゲーム状態管理 ---
         let gameState = 'start'; // 'start', 'playing', 'result'
@@ -520,8 +531,6 @@
                 if (e.key === 'ArrowRight') keyRight = false;
             });
             // スマホタッチ制御
-            let isMobile = false;
-            let lastTouchX = 0;
 
             canvas.addEventListener('touchstart', e => {
                 if (gameState !== 'playing') return;
