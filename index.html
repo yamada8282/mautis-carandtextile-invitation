@@ -532,33 +532,36 @@
                 if (e.key === 'ArrowLeft') keyLeft = false;
                 if (e.key === 'ArrowRight') keyRight = false;
             });
-            // スマホタッチ制御
+            // スマホタッチ制御（位置ベース：左側タッチ→左、右側タッチ→右、中央→直進）
+            let touchSteerDir = 0; // -1=左, 0=直進, 1=右
+
+            function updateTouchSteering(touchX) {
+                const leftZone = width / 3;
+                const rightZone = width * 2 / 3;
+                if (touchX < leftZone) {
+                    touchSteerDir = -1; // 左
+                } else if (touchX > rightZone) {
+                    touchSteerDir = 1;  // 右
+                } else {
+                    touchSteerDir = 0;  // 中央（直進）
+                }
+            }
 
             canvas.addEventListener('touchstart', e => {
                 if (gameState !== 'playing') return;
-                isMobile = true; // タッチしたらスマホモードとみなす
-                // 自動加速は loop 関数内で処理
-                lastTouchX = e.touches[0].clientX;
+                isMobile = true;
+                updateTouchSteering(e.touches[0].clientX);
             }, { passive: false });
 
             canvas.addEventListener('touchmove', e => {
                 if (gameState !== 'playing') return;
-                e.preventDefault(); // スクロール防止
-                const touchX = e.touches[0].clientX;
-                const deltaX = touchX - lastTouchX;
-                lastTouchX = touchX;
-
-                // スワイプで直感的に操作
-                // 画面幅100% = 2.0 (playerXの可動域は-1~1だが余裕を見て-2~2)
-                // 感度は調整必要
-                const sensitivity = 4.0 / width;
-                playerX += deltaX * sensitivity * 1.5;
+                e.preventDefault();
+                updateTouchSteering(e.touches[0].clientX);
             }, { passive: false });
 
-            // touchend: 指を離してもスマホモードなら自動加速は維持（ユーザー要望「自動加速でいい」）
-            // 操作入力だけリセット
+            // touchend: 指を離したら直進に戻す
             canvas.addEventListener('touchend', e => {
-                // keyLeft, keyRight は使わないのでリセット不要だが念のため
+                touchSteerDir = 0;
             });
 
 
@@ -906,7 +909,13 @@
 
                 // 左右操作（適度な感度で）
                 const steerSpeed = 0.01;
-                const steerDir = (keyRight ? 1 : 0) + (keyLeft ? -1 : 0); // -1,0,1
+                // PC: キーボード、スマホ: タッチ位置ベース
+                let steerDir = 0;
+                if (isMobile) {
+                    steerDir = touchSteerDir; // スマホは位置ベースのステアリング
+                } else {
+                    steerDir = (keyRight ? 1 : 0) + (keyLeft ? -1 : 0); // PC: キーボード
+                }
                 if (steerDir !== 0) {
                     playerX += steerDir * steerSpeed;
                     steeringInputSum += Math.abs(steerDir) * steerSpeed;
