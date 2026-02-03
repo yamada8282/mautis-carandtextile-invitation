@@ -519,33 +519,35 @@
                 if (e.key === 'ArrowLeft') keyLeft = false;
                 if (e.key === 'ArrowRight') keyRight = false;
             });
-            // スマホタッチ（ドラッグ操作）
-            let lastTouchX = null;
+            // スマホタッチ制御
+            let isMobile = false;
+            let lastTouchX = 0;
+
             canvas.addEventListener('touchstart', e => {
                 if (gameState !== 'playing') return;
-                e.preventDefault();
+                isMobile = true; // タッチしたらスマホモードとみなす
+                // 自動加速は loop 関数内で処理
                 lastTouchX = e.touches[0].clientX;
             }, { passive: false });
 
             canvas.addEventListener('touchmove', e => {
-                if (gameState !== 'playing' || lastTouchX === null) return;
-                e.preventDefault();
-                const currentX = e.touches[0].clientX;
-                const diff = currentX - lastTouchX;
+                if (gameState !== 'playing') return;
+                e.preventDefault(); // スクロール防止
+                const touchX = e.touches[0].clientX;
+                const deltaX = touchX - lastTouchX;
+                lastTouchX = touchX;
 
-                // 感度の設定（少しの移動で反応するように）
-                const threshold = 2;
-                if (diff < -threshold) { keyLeft = true; keyRight = false; }
-                else if (diff > threshold) { keyLeft = false; keyRight = true; }
-                else { keyLeft = false; keyRight = false; }
-
-                lastTouchX = currentX;
+                // スワイプで直感的に操作
+                // 画面幅100% = 2.0 (playerXの可動域は-1~1だが余裕を見て-2~2)
+                // 感度は調整必要
+                const sensitivity = 4.0 / width;
+                playerX += deltaX * sensitivity * 1.5;
             }, { passive: false });
 
+            // touchend: 指を離してもスマホモードなら自動加速は維持（ユーザー要望「自動加速でいい」）
+            // 操作入力だけリセット
             canvas.addEventListener('touchend', e => {
-                e.preventDefault();
-                keyLeft = false; keyRight = false;
-                lastTouchX = null;
+                // keyLeft, keyRight は使わないのでリセット不要だが念のため
             });
 
 
@@ -859,10 +861,13 @@
                     return;
                 }
 
-                // 速度計算（常に自動加速）
-                // ブレーキ（下キー）があれば減速、それ以外は加速
-                if (keySlower) speed += decel;
-                else speed += accel;
+                // 速度計算
+                if (isMobile) {
+                    speed += accel; // スマホは自動加速
+                    // ブレーキ操作を入れるならここで判定だが、要望により自動加速のみ
+                } else {
+                    if (keyFaster) speed += accel; else speed += decel;
+                }
 
                 // 現在のセグメントを取得
                 const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
