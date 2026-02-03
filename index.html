@@ -337,6 +337,16 @@
             background: #333;
             color: #fff;
         }
+
+        #data-explanation {
+            display: none;
+            font-size: 9px;
+            color: #999;
+            margin-top: 30px;
+            max-width: 300px;
+            text-align: left;
+            line-height: 1.6;
+        }
     </style>
 </head>
 
@@ -376,13 +386,14 @@
         </div>
         <button class="reserve-btn" id="reserve-btn" style="display: none;" onclick="goToReservation()">RESERVE
             TICKET</button>
-        <div id="data-explanation"
-            style="display: none; font-size: 9px; color: #999; margin-top: 30px; max-width: 300px; text-align: left; line-height: 1.6;">
-            <div style="margin-bottom: 8px; font-weight: 500; color: #666;">― データ反映について ―</div>
-            <div>・蛇行度 → 織りパターンの歪み</div>
-            <div>・走行速度 → 糸の密度</div>
-            <div>・衝突/コースアウト回数 → テクスチャの粗さ</div>
+        <div id="data-explanation">
+            <div style="margin-bottom: 8px; font-weight: 500; color: #666;">― データ解析結果 ―</div>
+            <div>・蛇行量 → 織りの揺らぎ (Warp)</div>
+            <div>・衝突数 → ノイズ・グリッチ (Texture)</div>
+            <div>・アイテム → カラーパレット (Color)</div>
         </div>
+        <!-- テキスタイル生成用 高解像度Canvas (不可視) -->
+        <canvas id="textileCanvas" width="2048" height="2048" style="display:none;"></canvas>
     </div>
 
     <script>
@@ -399,10 +410,9 @@
         const segmentLength = 200;
         const rumbleLength = 3;
         const fieldOfView = 100;
-        // カメラの高さ（視点）：数値が小さいほど低い位置（ローアングル）になります
-        // 例: 1000=通常, 600=迫力ある低い視点, 2000=俯瞰
+        // カメラの高さ（視点）
         let cameraHeight = 300;
-        const drawDistance = 300; // 描画する距離（遠くまで見せるなら増やす）
+        const drawDistance = 300;
 
         // --- エンジン変数 ---
         const canvas = document.getElementById('gameCanvas');
@@ -415,7 +425,7 @@
         let playerX = 0;
         let playerZ = 0;
         let speed = 0;
-        const speedMultiplier = 0.006; // 進むスピード全体の倍率（1より小さくすると遅くなる）
+        const speedMultiplier = 0.006;
         const maxSpeed = 12000; // 最高速度
         const accel = 15;      // 加速度
         const breaking = -200;  // 減速度
@@ -436,56 +446,77 @@
         let gameState = 'start'; // 'start', 'playing', 'result'
 
         // --- プレイデータ収集 ---
-        const gameDuration = 30000; // 30秒（ミリ秒）
+        const gameDuration = 30000; // 30秒
         let gameStartTime = null;
         let gameEnded = false;
         let playData = {
-            weaveType: 0,      // 蛇行度（0-1: 直線的〜曲線的）
-            texture: 0,        // ダメージ/接触（0-1: 綺麗〜劣化）
-            density: 0,        // 速度域/密度（0-1: 遅い〜速い）
-            // 生データ
-            steeringHistory: [],  // 左右操作の履歴
-            speedHistory: [],    // 速度の履歴
-            trajectory: [],      // 走行軌跡（playerX）
-            collisionCount: 0,   // コースアウト回数
-            totalDistance: 0      // 総移動距離
+            weaveType: 0,
+            texture: 0,
+            density: 0,
+            steeringHistory: [],
+            speedHistory: [],
+            trajectory: [],
+            collisionCount: 0,
+            totalDistance: 0,
+            itemCounts: { blue: 0, red: 0, green: 0, orange: 0 }
         };
 
         // 蛇行度計算用
         let lastPlayerX = 0;
         let steeringVariance = 0;
-        let steeringInputSum = 0;       // 入力（左右）の総量
-        let steeringFlipCount = 0;      // 左右の切り返し回数
-        let lastSteerDir = 0;           // -1, 0, 1
+        let steeringInputSum = 0;
+        let steeringFlipCount = 0;
+        let lastSteerDir = 0;
 
         // 画像
         const carImgStraight = new Image(); carImgStraight.src = 'car_straight.png';
         const carImgLeft = new Image(); carImgLeft.src = 'car2_left.png';
         const carImgRight = new Image(); carImgRight.src = 'car2_right.png';
 
-        // 背景画像は使わないのでコメントアウト
-        // const bgImg = new Image(); bgImg.src = 'bg2.png';
+        // 障害物画像
+        const obstacleSources = ['dram.png', 'dram2.png', 'wall.png', 'wall2.png'];
+        const obstacleImgs = obstacleSources.map(src => {
+            const img = new Image();
+            img.src = src;
+            return img;
+        });
 
         // 道路データ
         const segments = [];
-        const totalSegments = 1600; // コース全長
+        const totalSegments = 1600;
 
-        // 障害物データ
+        // 障害物・アイテムデータ
         const obstacles = [];
+        const items = []; // カラーアイテム
+
         function initObstacles() {
             obstacles.length = 0;
-            // 障害物をランダムに配置（不純物として）
-            for (let i = 0; i < 50; i++) {
+            // 障害物をランダムに配置
+            for (let i = 0; i < 40; i++) {
                 obstacles.push({
                     segmentIndex: Math.floor(Math.random() * totalSegments),
-                    x: (Math.random() - 0.5) * 1.5, // 道路の左右に配置
-                    size: 0.3 + Math.random() * 0.4,
+                    x: (Math.random() - 0.5) * 1.5,
+                    type: Math.floor(Math.random() * obstacleImgs.length), // 画像タイプ
                     hit: false
                 });
             }
         }
 
-        // --- 数学関数（Jake Gordon氏のロジックに基づく） ---
+        function initItems() {
+            items.length = 0;
+            const colors = ['blue', 'red', 'green', 'orange'];
+            for (let i = 0; i < 20; i++) {
+                items.push({
+                    segmentIndex: Math.floor(Math.random() * totalSegments),
+                    x: (Math.random() - 0.5) * 1.8,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    hit: false,
+                    floatOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        // --- 数学関数 ---
         function project(p, cameraX, cameraY, cameraZ, cameraDepth) {
             p.camera.x = (p.world.x || 0) - cameraX;
             p.camera.y = (p.world.y || 0) - cameraY;
@@ -519,12 +550,11 @@
         }
 
         function initRoad() {
-            // ここでコースレイアウトを作ります（長さ, 長さ, 長さ, カーブのきつさ）
             addRoad(50, 50, 50, 0);       // 直線
             addRoad(50, 50, 50, 4);       // 右カーブ
             addRoad(50, 50, 50, -2);      // 左カーブ
             addRoad(50, 50, 50, 2);       // 右へ
-            addRoad(50, 200, 50, 0);      // 長い直線（ナラティブ用）
+            addRoad(50, 200, 50, 0);      // 長い直線
             addRoad(50, 50, 50, -4);      // きつい左
             addRoad(100, 100, 100, 0);    // 最後は直線
         }
@@ -544,13 +574,11 @@
                 if (e.key === 'ArrowLeft') keyLeft = false;
                 if (e.key === 'ArrowRight') keyRight = false;
             });
-            // スマホタッチ制御（位置ベース：左側タッチ→左、右側タッチ→右、中央→直進）
 
+            // スマホタッチ制御
             function updateTouchSteering(touchX) {
-                // 滑らかなステアリング（-1.0 ～ 1.0）
-                // 画面の左端 = -1.0、中央 = 0、右端 = 1.0
-                const normalizedX = (touchX / width) * 2 - 1; // -1.0 ～ 1.0
-                touchSteerDir = Math.max(-1, Math.min(1, normalizedX)); // クランプ
+                const normalizedX = (touchX / width) * 2 - 1;
+                touchSteerDir = Math.max(-1, Math.min(1, normalizedX));
             }
 
             canvas.addEventListener('touchstart', e => {
@@ -565,16 +593,14 @@
                 updateTouchSteering(e.touches[0].clientX);
             }, { passive: false });
 
-            // touchend: 指を離したら直進に戻す
             canvas.addEventListener('touchend', e => {
                 touchSteerDir = 0;
             });
 
-
             // BGM設定
             window.bgm = new Audio('preview (3).mp3');
             window.bgm.loop = true;
-            window.bgm.volume = 0.5; // 音量は控えめに
+            window.bgm.volume = 0.5;
 
             // ナレーション設定
             window.narration = new Audio('ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3');
@@ -585,17 +611,11 @@
             window.motor.loop = true;
             window.motor.volume = 0.6;
 
-            // AudioContext設定（音圧反応用）
-            let beatPower = 0; // 0.0 ~ 1.0
-
             // スタート画面のボタン
             document.getElementById('init-button').addEventListener('click', () => {
-                // 再生開始（AudioContextは使用せず、通常のAudio再生を行う）
-                // ※ローカル環境等での再生トラブル回避のため
                 window.bgm.play().catch(e => console.log('BGM play failed:', e));
                 window.motor.play().catch(e => console.log('Motor play failed:', e));
 
-                // ナレーションは少し待ってから再生
                 setTimeout(() => {
                     window.narration.play().catch(e => console.log('Narration play failed:', e));
                 }, 2000);
@@ -605,22 +625,17 @@
 
             initRoad();
             initObstacles();
+            initItems();
 
-            // ゲームループは状態に応じて実行
             requestAnimationFrame(loop);
-
-            // 音圧解析関数は不要になったため削除
         }
 
         function startGameTransition() {
-            // グリッチエフェクト
             const glitchOverlay = document.getElementById('glitch-overlay');
             glitchOverlay.classList.add('active');
 
             setTimeout(() => {
-                // スタート画面を非表示
                 document.getElementById('start-screen').classList.add('hidden');
-                // ゲーム開始
                 startGame();
             }, 500);
         }
@@ -629,6 +644,7 @@
             gameState = 'playing';
             gameStartTime = Date.now();
             gameEnded = false;
+            // データリセット/初期化
             playData = {
                 weaveType: 0,
                 texture: 0,
@@ -637,7 +653,8 @@
                 speedHistory: [],
                 trajectory: [],
                 collisionCount: 0,
-                totalDistance: 0
+                totalDistance: 0,
+                itemCounts: { blue: 0, red: 0, green: 0, orange: 0 }
             };
             lastPlayerX = 0;
             steeringVariance = 0;
@@ -647,6 +664,8 @@
             position = 0;
             playerX = 0;
             speed = 0;
+
+            initItems(); // ゲーム開始時にもアイテム再配置
         }
 
         function resize() {
@@ -660,12 +679,9 @@
             if (gameState !== 'playing') return;
 
             ctx.clearRect(0, 0, width, height);
-
-            // 背景は真っ白に塗る
             ctx.fillStyle = '#fff';
             ctx.fillRect(0, 0, width, height);
 
-            // 道路の計算と描画
             const baseSegment = segments[Math.floor(position / segmentLength) % segments.length];
             const basePercent = (position % segmentLength) / segmentLength;
             const playerSegment = segments[Math.floor((position + playerZ) / segmentLength) % segments.length];
@@ -676,16 +692,14 @@
             const cameraDepth = 1 / Math.tan((fieldOfView / 2) * Math.PI / 180);
 
             let maxy = height;
-            const projected = new Array(totalSegments); // 可視範囲の投影結果（障害物描画用）
+            const projected = new Array(totalSegments);
 
             for (let n = 0; n < drawDistance; n++) {
                 const segment = segments[(baseSegment.index + n) % segments.length];
 
-                // カーブ計算の心臓部
                 segment.p1.camera.x = playerX * roadWidth;
                 project(segment.p1, (playerX * roadWidth) - x, cameraHeight, position - (segment.index < baseSegment.index ? totalSegments * segmentLength : 0), cameraDepth);
 
-                // カーブの蓄積
                 x += dx;
                 dx += segment.curve;
 
@@ -693,8 +707,6 @@
 
                 if (segment.p1.camera.z <= cameraDepth || segment.p2.screen.y >= segment.p1.screen.y || segment.p2.screen.y >= maxy) continue;
 
-                // 描画（ベルトコンベア風に）
-                // 道路のベース
                 ctx.fillStyle = segment.color;
                 ctx.beginPath();
                 ctx.moveTo(segment.p1.screen.x - segment.p1.screen.w, segment.p1.screen.y);
@@ -703,7 +715,6 @@
                 ctx.lineTo(segment.p1.screen.x + segment.p1.screen.w, segment.p1.screen.y);
                 ctx.fill();
 
-                // ベルトコンベアのライン（工業感を出す）
                 if (n % 5 === 0) {
                     ctx.strokeStyle = '#333';
                     ctx.lineWidth = 2;
@@ -717,7 +728,6 @@
                     ctx.stroke();
                 }
 
-                // 中央の分割線
                 ctx.strokeStyle = '#444';
                 ctx.lineWidth = 1;
                 ctx.setLineDash([10, 10]);
@@ -727,47 +737,161 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
 
-                // 障害物描画用に、このセグメントの投影結果を保存（p2の方が手前側）
                 projected[segment.index] = {
                     x: segment.p2.screen.x,
                     y: segment.p2.screen.y,
                     w: segment.p2.screen.w
                 };
-
                 maxy = segment.p1.screen.y;
             }
 
-            // 障害物の描画（不純物として）
+            // 障害物描画
             obstacles.forEach(obstacle => {
                 if (obstacle.hit) return;
                 const p = projected[obstacle.segmentIndex];
-                if (!p) return; // 今フレームでは画面内にいない
+                if (!p) return;
 
                 const obstacleScreenX = p.x + (obstacle.x * p.w);
                 const obstacleScreenY = p.y;
-                const radius = Math.max(6, obstacle.size * p.w * 0.03);
 
-                // 障害物を描画（赤い警告色）
-                ctx.fillStyle = '#f00';
-                ctx.beginPath();
-                ctx.arc(obstacleScreenX, obstacleScreenY, radius, 0, Math.PI * 2);
-                ctx.fill();
+                // 画像描画
+                const img = obstacleImgs[obstacle.type];
+                let obsWidth = 0;
+                let obsHeight = 0;
 
-                // 衝突判定（画面下の車付近）
+                if (img && img.complete && img.width > 0) {
+                    // スケーリング：道路幅(p.w)の25%程度に合わせる
+                    const targetWidth = p.w * 0.4;
+                    const scale = targetWidth / img.width;
+                    obsWidth = targetWidth;
+                    obsHeight = img.height * scale;
+
+                    const drawX = obstacleScreenX - obsWidth / 2;
+                    const drawY = obstacleScreenY - obsHeight * 1; // より路面に近く
+
+                    ctx.drawImage(img, drawX, drawY, obsWidth, obsHeight);
+                } else {
+                    // 読み込み前フォールバック
+                    const radius = Math.max(6, 0.5 * p.w * 0.03 * 300);
+                    ctx.fillStyle = '#f00';
+                    ctx.beginPath();
+                    ctx.arc(obstacleScreenX, obstacleScreenY, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    obsWidth = radius * 2;
+                }
+
+                // 衝突判定
                 const playerScreenX = width / 2;
                 const playerScreenY = height - 120;
-                const distanceToObstacle = Math.hypot(playerScreenX - obstacleScreenX, playerScreenY - obstacleScreenY);
-                if (distanceToObstacle < radius + 60) {
-                    playData.collisionCount += 2; // 障害物ヒットは重めに
-                    obstacle.hit = true;          // 一度だけカウント
-                    speed = Math.max(0, speed - 1500); // ヒットで減速して密度にも影響
+
+                // 判定エリア（画像幅の40%）
+                const hitRadius = Math.max(20, obsWidth * 0.4);
+
+                // Y座標判定
+                const inDepthRange = (obstacleScreenY > playerScreenY - 40) && (obstacleScreenY < playerScreenY + 60);
+
+                if (inDepthRange && Math.abs(playerScreenX - obstacleScreenX) < hitRadius + 40) {
+                    playData.collisionCount += 2;
+                    obstacle.hit = true;
+                    speed = Math.max(0, speed - 4000);
+
+                    // 衰突演出（赤いフラッシュ）
+                    const flash = document.createElement('div');
+                    flash.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(255,255,255,0.8);pointer-events:none;z-index:999;transition:opacity 0.15s';
+                    document.body.appendChild(flash);
+                    requestAnimationFrame(() => {
+                        flash.style.opacity = '0';
+                        setTimeout(() => flash.remove(), 150);
+                    });
                 }
             });
 
-            // 車の描画（常に画面中央下）
-            // 操作に応じて画像を切り替え
+            // アイテム描画
+            items.forEach(item => {
+                if (item.hit) return;
+                const p = projected[item.segmentIndex];
+                if (!p) return;
+
+                const floatY = Math.sin(Date.now() / 400 + item.floatOffset) * 3; // 揺れ控えめ
+                const itemScreenX = p.x + (item.x * p.w);
+                // 高さ調整：1.5 -> 0.3 (だいぶ下げる)
+                const itemScreenY = p.y - p.w * 0.1 - floatY * (p.w * 0.005);
+                const size = p.w * 0.05;
+
+                ctx.save();
+                ctx.translate(itemScreenX, itemScreenY);
+
+                let colorCode = '#fff';
+                let glowCode = '#fff';
+                if (item.color === 'blue') { colorCode = '#00ccff'; glowCode = 'rgba(0, 204, 255, 0.6)'; }
+                else if (item.color === 'red') { colorCode = '#ff0066'; glowCode = 'rgba(255, 0, 102, 0.6)'; }
+                else if (item.color === 'green') { colorCode = '#00ff00'; glowCode = 'rgba(0, 255, 0, 0.6)'; }
+                else if (item.color === 'orange') { colorCode = '#ffaa00'; glowCode = 'rgba(255, 170, 0, 0.6)'; }
+
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = colorCode;
+                ctx.fillStyle = colorCode;
+                ctx.beginPath();
+                ctx.moveTo(0, -size);
+                ctx.lineTo(size * 0.8, 0);
+                ctx.lineTo(0, size);
+                ctx.lineTo(-size * 0.8, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(0, -size * 0.5);
+                ctx.lineTo(size * 0.4, 0);
+                ctx.lineTo(0, size * 0.5);
+                ctx.lineTo(-size * 0.4, 0);
+                ctx.closePath();
+                ctx.globalAlpha = 0.5;
+                ctx.fill();
+
+                ctx.restore();
+
+                // 取得判定
+                const playerScreenX = width / 2;
+                const playerScreenY = height - 120;
+                const distanceToItem = Math.hypot(playerScreenX - itemScreenX, playerScreenY - itemScreenY);
+
+                if (distanceToItem < size + 100 && p.w > 10) {
+                    if (playData && playData.itemCounts) {
+                        playData.itemCounts[item.color] = (playData.itemCounts[item.color] || 0) + 1;
+                    }
+                    item.hit = true;
+
+                    // 取得演出
+                    const flash = document.createElement('div');
+                    flash.style.position = 'fixed';
+                    flash.style.top = '0';
+                    flash.style.left = '0';
+                    flash.style.width = '100vw';
+                    flash.style.height = '100vh';
+                    flash.style.background = glowCode;
+                    flash.style.pointerEvents = 'none';
+                    flash.style.zIndex = '999';
+                    flash.style.transition = 'opacity 0.2s';
+                    document.body.appendChild(flash);
+
+                    try {
+                        const originalRate = window.motor.playbackRate;
+                        window.motor.playbackRate = 2.0;
+                        setTimeout(() => window.motor.playbackRate = originalRate, 150);
+                    } catch (e) { }
+
+                    requestAnimationFrame(() => {
+                        flash.style.opacity = '0';
+                        setTimeout(() => {
+                            if (flash.parentNode) document.body.removeChild(flash);
+                        }, 200);
+                    });
+                }
+            });
+
+            // 車の描画
             let currentCarImg = carImgStraight;
-            // PC: キーボード、スマホ: タッチ位置
             if (isMobile) {
                 if (touchSteerDir < -0.2) currentCarImg = carImgLeft;
                 else if (touchSteerDir > 0.2) currentCarImg = carImgRight;
@@ -777,27 +901,22 @@
             }
 
             if (currentCarImg.complete) {
-                // スマホ（ローアングル）なら少し大きく表示して迫力を出す
-                let carScale = 0.4; // PCデフォルト
-                if (cameraHeight < 800) carScale = 0.65; // スマホ用スケール
+                let carScale = 0.4;
+                if (cameraHeight < 800) carScale = 0.65;
 
                 const carDisplayWidth = width * carScale;
                 const ratio = currentCarImg.height / currentCarImg.width;
                 const carDisplayHeight = carDisplayWidth * ratio;
                 const carX = (width / 2) - (carDisplayWidth / 2);
-
-                // カーブに合わせて車を少し揺らす（簡易スプライトアニメ風）
                 const bounce = Math.sin(Date.now() / 50) * 2;
                 const carY = height - carDisplayHeight - 20 + bounce;
 
-                // 影を描画（接地感を出す）
                 ctx.save();
                 ctx.beginPath();
-                // 車の下に楕円形の影を配置（車と連動して揺れる）
                 const shadowX = carX + carDisplayWidth / 2;
-                const shadowY = height - 80 + bounce; // 車と一緒に揺れる
+                const shadowY = height - 80 + bounce;
                 const shadowRadiusX = carDisplayWidth * 0.45;
-                const shadowRadiusY = 35; // 影を大きく
+                const shadowRadiusY = 35;
                 ctx.ellipse(shadowX, shadowY, shadowRadiusX, shadowRadiusY, 0, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
                 ctx.fill();
@@ -806,154 +925,112 @@
                 ctx.drawImage(currentCarImg, carX, carY, carDisplayWidth, carDisplayHeight);
             }
 
-            // 字幕更新（時間経過に基づく）
+            // --- データ計測 ---
+            playData.totalDistance += speed * speedMultiplier;
+            const currentSteer = isMobile ? touchSteerDir : (keyLeft ? -1 : (keyRight ? 1 : 0));
+            if (currentSteer !== 0 && lastSteerDir !== currentSteer) {
+                playData.steeringFlipCount++;
+            }
+            lastSteerDir = currentSteer;
+            steeringInputSum += Math.abs(currentSteer);
+            if (Math.random() < 0.05) playData.speedHistory.push(speed);
+
+            // 字幕更新
             const elapsed = Date.now() - gameStartTime;
-            // ナレーションに合わせて2秒遅らせる
             const subtitleElapsed = elapsed - 1800;
             const timeProg = Math.min(1.0, Math.max(0, subtitleElapsed) / gameDuration);
 
             let textJP = "";
             let textEN = "";
-
             if (subtitleElapsed < 0) {
-                // 2秒未満は表示しない
-                textEN = "";
-                textJP = "";
-            }
-            else if (timeProg < 0.08) {
+            } else if (timeProg < 0.08) {
                 textEN = "Textiles carry stories within them.";
                 textJP = "繊維には、物語があります。";
-            }
-            else if (timeProg < 0.28) {
+            } else if (timeProg < 0.28) {
                 textEN = "Some gain character through years of use,<br>while others are discarded, never knowing a human touch.";
                 textJP = "何度も使われ、味わいを帯びた繊維。<br>誰にも触れられず、役目を果たせないまま廃棄される繊維。";
-            }
-            else if (timeProg < 0.45) {
+            } else if (timeProg < 0.45) {
                 textEN = "Inside every car, textiles live in silence.";
                 textJP = "車の中にも、ひっそりと息づく繊維があります。";
-            }
-            else if (timeProg < 0.60) {
+            } else if (timeProg < 0.60) {
                 textEN = "Seats, floors, filters, and cushions.";
                 textJP = "シート、フロア、フィルター、クッション。";
-            }
-            else if (timeProg < 0.80) {
+            } else if (timeProg < 0.80) {
                 textEN = "We gently unearth their hidden narratives<br>to weave new possibilities for the future.";
                 textJP = "私たちは、その物語を丁寧にすくい上げ、<br>繊維が持つ新たな可能性を紡いでいきます。";
-            }
-            else {
+            } else {
                 textEN = "Proceed to the exhibition.";
                 textJP = "";
             }
 
-            // 日英併記で表示（英語DIN, 日本語Noto Sans）
-            if (textEN && textJP !== "PRESS TO RESERVE") {
+            if (textEN && textJP) {
                 caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 0.9em;">${textEN}</span><br><span style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.8em; opacity: 0.9;">${textJP}</span>`;
             } else {
-                caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif;">${textJP}</span>`;
+                caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif;">${textEN || textJP}</span>`;
             }
 
-            // 速度計の更新（実際の進行速度をkm/hに変換）
-            const actualSpeed = speed * speedMultiplier * 2.5; // 適切なスケールでkm/hに変換
+            // 演出と速度
+            if (timeProg > 0.9) {
+                const fade = (timeProg - 0.9) * 10;
+                ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
+                ctx.fillRect(0, 0, width, height);
+                const vol = Math.max(0, 1.0 - Math.pow(fade, 2));
+                if (window.bgm) window.bgm.volume = vol * 0.5;
+                if (window.motor) window.motor.volume = vol * 0.6;
+            }
+
+            const actualSpeed = speed * speedMultiplier * 2.5;
             speedValue.textContent = Math.floor(actualSpeed);
 
-            // --- フェードアウト処理 (25秒 = 25000ms から開始) ---
-            // ※ bgm, narration 変数はグローバルスコープにある必要があります
-            if (elapsed > 25000) {
-                const fadeDuration = 5000; // 5秒かけてフェード
-                const fadeProg = Math.min(1.0, (elapsed - 25000) / fadeDuration);
-
-                // 画面を白くする
-                ctx.fillStyle = `rgba(255, 255, 255, ${fadeProg})`;
-                ctx.fillRect(0, 0, width, height);
-
-                // 音量を下げる（変数が存在する場合のみ）
-                // 聴覚的に自然にするため、二乗カーブで減衰させる
-                const volRatio = Math.pow(1.0 - fadeProg, 2);
-
-                if (window.bgm) {
-                    window.bgm.volume = Math.max(0, 0.5 * volRatio);
-                }
-                if (window.narration) {
-                    window.narration.volume = Math.max(0, 1.0 * volRatio);
-                }
-                if (window.motor) {
-                    window.motor.volume = Math.max(0, 0.6 * volRatio);
-                }
+            if (elapsed > gameDuration && !gameEnded) {
+                endGame();
             }
         }
 
         // --- メインループ ---
         function loop() {
             if (gameState === 'start') {
-                // スタート画面では何もしない
                 requestAnimationFrame(loop);
                 return;
             }
 
             if (gameState === 'playing') {
-                if (gameEnded) {
-                    requestAnimationFrame(loop);
-                    return;
-                }
-
-                // 30秒制限チェック
                 const elapsed = Date.now() - gameStartTime;
                 if (elapsed >= gameDuration) {
-                    endGame();
+                    endGame(); // 念のためここでも呼ぶ
                     requestAnimationFrame(loop);
                     return;
                 }
 
-                // 速度計算
                 if (isMobile) {
-                    speed += accel * 2; // スマホは自動加速（2倍速）
-                    // ブレーキ操作を入れるならここで判定だが、要望により自動加速のみ
+                    speed += accel * 2;
                 } else {
                     if (keyFaster) speed += accel; else speed += decel;
                 }
 
-                // 現在のセグメントを取得
                 const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
-
-                // カーブに沿って自然に曲がる力（Jake Gordon方式）
                 const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.000005;
                 playerX += curveForce;
 
-                // 左右操作（適度な感度で）
-                const steerSpeed = isMobile ? 0.025 : 0.01; // スマホは感度高め
-                // PC: キーボード、スマホ: タッチ位置ベース
+                const steerSpeed = isMobile ? 0.025 : 0.01;
                 let steerDir = 0;
                 if (isMobile) {
-                    steerDir = touchSteerDir; // スマホは位置ベースのステアリング
+                    steerDir = touchSteerDir;
                 } else {
-                    steerDir = (keyRight ? 1 : 0) + (keyLeft ? -1 : 0); // PC: キーボード
+                    steerDir = (keyRight ? 1 : 0) + (keyLeft ? -1 : 0);
                 }
                 if (steerDir !== 0) {
                     playerX += steerDir * steerSpeed;
-                    steeringInputSum += Math.abs(steerDir) * steerSpeed;
-                    if (lastSteerDir !== 0 && steerDir !== lastSteerDir) steeringFlipCount++;
-                    lastSteerDir = steerDir;
-                } else {
-                    lastSteerDir = 0;
                 }
 
-                // データ収集：蛇行度
-                const steeringChange = Math.abs(playerX - lastPlayerX);
-                playData.steeringHistory.push(steeringChange);
-                steeringVariance += steeringChange * steeringChange;
+                // データ収集
                 lastPlayerX = playerX;
-
-                // データ収集：速度と軌跡
                 const normalizedSpeed = speed / maxSpeed;
-                playData.speedHistory.push(normalizedSpeed);
-                playData.trajectory.push(playerX); // -2.0 ~ 2.0
-                playData.totalDistance += speed * speedMultiplier;
 
-                // コースアウト判定（接触/ダメージ）
+                // コースアウト判定
                 if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) {
                     speed += offRoadDecel;
-                    // コースアウトは軽いダメージとして扱う（障害物より軽い）
-                    playData.collisionCount += 0.5;
+                    playData.collisionCount += 0.05; // renderでのカウントと合わせる
                 }
 
                 playerX = Math.max(-2, Math.min(2, playerX));
@@ -965,350 +1042,195 @@
 
                 render();
             }
-
-            // result状態でもループを続ける（結果画面のアニメーション用）
-            requestAnimationFrame(loop);
+            if (gameState === 'result') {
+                // 結果画面でもアニメーションさせてもいいが、一旦停止
+            }
+            if (!gameEnded) {
+                requestAnimationFrame(loop);
+            }
         }
 
+        // --- 終了処理 ---
         function endGame() {
+            if (gameEnded) return;
             gameEnded = true;
             gameState = 'result';
 
-            // 音声を確実に停止
-            if (window.bgm) { window.bgm.pause(); window.bgm.volume = 0; }
-            if (window.narration) { window.narration.pause(); window.narration.volume = 0; }
-            if (window.motor) { window.motor.pause(); window.motor.volume = 0; }
+            if (window.bgm) { window.bgm.pause(); window.bgm.currentTime = 0; }
+            if (window.motor) { window.motor.pause(); window.motor.currentTime = 0; }
+            if (window.narration) { window.narration.pause(); }
 
-            // データを正規化（0-1の範囲に）
-            // 蛇行度：実入力の量 + 切り返し回数（「押してるのに反映されない」を防ぐ）
-            const frames = Math.max(playData.speedHistory.length, 1);
-            const inputPerFrame = steeringInputSum / frames; // だいたい 0〜0.01 くらい
-            const flipScore = Math.min(1, steeringFlipCount / 20); // 20回切り返しで最大
-            const inputScore = Math.min(1, inputPerFrame / 0.004); // 0.004/frame を基準に正規化
-            playData.weaveType = Math.min(1, (inputScore * 0.7) + (flipScore * 0.3));
+            document.getElementById('ui-layer').style.display = 'none';
+            document.getElementById('speedometer').style.display = 'none';
+            document.getElementById('gameCanvas').style.display = 'none';
+            document.getElementById('scanlines').style.display = 'none';
 
-            // ダメージ/接触：コースアウト回数
-            playData.texture = Math.min(1, playData.collisionCount / 10); // 10回で最大
+            const resScreen = document.getElementById('result-screen');
+            resScreen.classList.add('active');
 
-            // 速度域/密度：平均速度
-            const avgSpeed = playData.speedHistory.reduce((a, b) => a + b, 0) / Math.max(playData.speedHistory.length, 1);
-            playData.density = avgSpeed;
-
-            // 結果画面を表示
-            showResultScreen();
-        }
-
-        async function showResultScreen() {
-            const resultScreen = document.getElementById('result-screen');
-            resultScreen.classList.add('active');
-
-            // ローカルで画像を生成
-            const materialId = generateMaterialId(playData);
-            document.getElementById('loading-text').textContent = 'ANALYZING MATERIAL DATA...';
-
-            // 画像生成（少し時間をかけて演出）
-            setTimeout(() => {
-                const imageUrl = generateMaterialImage(playData);
-                displayResult(imageUrl, materialId);
-            }, 1500);
-        }
-
-        function displayResult(imageUrl, materialId) {
-            document.getElementById('loading-text').style.display = 'none';
-            document.getElementById('material-image').src = imageUrl;
-            document.getElementById('material-image').style.display = 'block';
-            document.getElementById('material-id').textContent = 'TYPE: ' + materialId;
-            document.getElementById('material-id').style.display = 'block';
-
-            // スペック情報を表示
-            const specInfo = document.getElementById('spec-info');
-            specInfo.innerHTML = `
-                COMPOSITION: WEAVE ${(playData.weaveType * 100).toFixed(0)}% | 
-                TEXTURE ${(playData.texture * 100).toFixed(0)}% | 
-                DENSITY ${(playData.density * 100).toFixed(0)}%
-            `;
-            specInfo.style.display = 'block';
-
-            document.getElementById('share-buttons').style.display = 'flex';
-            document.getElementById('reserve-btn').style.display = 'block';
-            document.getElementById('data-explanation').style.display = 'block';
-        }
-
-        function generateMaterialId(data) {
-            // データに基づいてマテリアルIDを決定。より工業的なネーミングに。
-            const types = [];
-
-            // WEAVE判定
-            if (data.weaveType < 0.2) types.push("RIGID");
-            else if (data.weaveType < 0.5) types.push("FLEX");
-            else types.push("CHAOS");
-
-            // DENSITY判定
-            if (data.density > 0.8) types.push("HIGH-DENSITY");
-            else if (data.density < 0.4) types.push("LOW-GAUGE");
-            else types.push("STANDARD");
-
-            // TEXTURE判定
-            if (data.texture > 0.8) types.push("DAMAGED");
-            else if (data.texture > 0.4) types.push("USED");
-            else types.push("VIRGIN");
-
-            // 組み合わせ語
-            if (data.weaveType > 0.8 && data.texture > 0.8) return "WRECKAGE MESH [UNSTABLE]";
-            if (data.density > 0.9 && data.weaveType < 0.1) return "MONOLITH FIBER [PROTOTYPE]";
-            if (data.texture < 0.1 && data.weaveType < 0.1) return "PURE SYNTHETIC [LAB-GROWN]";
-
-            return types.join(" ") + " FIBER";
-        }
-
-        function generateMaterialImage(data) {
-            // Canvas APIでプロシージャルに画像を生成（TouchDesigner風）
-            const canvas = document.createElement('canvas');
-            canvas.width = 800;
-            canvas.height = 1200;
-            const ctx = canvas.getContext('2d');
-
-            // 背景（スタイルに応じて）
-            const style = getMaterialStyle(data);
-            ctx.fillStyle = style.bgColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // グリッド/線の生成
-            generateWeavePattern(ctx, canvas.width, canvas.height, data, style);
-
-            // ノイズ/グリッチ効果（textureに応じて）
-            if (data.texture > 0.3) {
-                addGlitchEffect(ctx, canvas.width, canvas.height, data.texture);
-            }
-
-            // マテリアルIDテキストを追加（結果画面で表示するので、ここでは最小限に）
-            // 実際のテキストは結果画面のHTMLで表示
-
-            return canvas.toDataURL('image/png');
-        }
-
-        function getMaterialStyle(data) {
-            // マテリアルのスタイルを決定
-            if (data.weaveType < 0.3 && data.texture < 0.2) {
-                return { bgColor: '#000', lineColor: '#fff', textColor: '#0f0' }; // ORDERLY MESH
-            }
-            if (data.weaveType > 0.7 && data.texture > 0.5) {
-                return { bgColor: '#000', lineColor: '#f00', textColor: '#f00' }; // CHAOS FIBER
-            }
-            if (data.density > 0.8) {
-                return { bgColor: '#000', lineColor: '#0ff', textColor: '#0ff' }; // HIGH-TENSION
-            }
-            if (data.texture > 0.6) {
-                return { bgColor: '#1a1a1a', lineColor: '#8b4513', textColor: '#8b4513' }; // RUST METAL
-            }
-            return { bgColor: '#000', lineColor: '#0f0', textColor: '#0f0' }; // デフォルト
-        }
-
-        function generateWeavePattern(ctx, width, height, data, style) {
-            // 高度なマテリアル生成ロジック
-
-            // 1. ベースレイヤー：ノイズグラデーション
-            for (let i = 0; i < 20; i++) {
-                ctx.fillStyle = style.bgColor;
-                ctx.globalAlpha = 0.1;
-                ctx.fillRect(Math.random() * width, Math.random() * height, Math.random() * 200, Math.random() * 200);
-            }
-            ctx.globalAlpha = 1.0;
-
-            // 2. 織り（Warp & Weft）の描画
-            // weaveTypeが高いほど、ノイズが大きく、線が有機的に歪む
-            const weaveDensity = 40 - (data.density * 30); // 密度が高い＝間隔が狭い
-            const distortion = data.weaveType * 100;
-
-            ctx.strokeStyle = style.lineColor;
-            ctx.lineWidth = 0.5;
-
-            // 縦糸
-            for (let x = 0; x < width; x += weaveDensity) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-
-                // ノイズ関数的に線を歪ませる
-                for (let y = 0; y < height; y += 10) {
-                    const noise = Math.sin(y * 0.05 + x) * distortion * (Math.random() * 0.5 + 0.5);
-                    const drift = Math.cos(y * 0.002) * (data.weaveType * 50);
-                    ctx.lineTo(x + noise + drift, y);
+            // パラメータ解析
+            const counts = playData.itemCounts;
+            let maxColor = 'bw_std';
+            let maxCount = 0;
+            const colorMap = { blue: 'bauhaus', red: 'swiss', green: 'forest', orange: 'retro' };
+            for (let c in counts) {
+                if (counts[c] > maxCount) {
+                    maxCount = counts[c];
+                    maxColor = colorMap[c];
                 }
-
-                ctx.stroke();
             }
+            // ランダムサブパレット
+            if (maxColor === 'bauhaus' && Math.random() > 0.6) maxColor = 'navy';
+            if (maxColor === 'swiss' && Math.random() > 0.6) maxColor = 'pop';
 
-            // 横糸（Textureが高い場合、切れやムラを作る）
-            ctx.globalAlpha = 0.8;
-            for (let y = 0; y < height; y += weaveDensity) {
-                if (Math.random() < data.texture * 0.2) continue; // ダメージ感を出すため間引く
+            // パラメータ算出
+            const avgSteer = steeringInputSum / (playData.speedHistory.length || 1);
+            const steerScore = Math.min(1.0, avgSteer * 2.0);
 
-                ctx.beginPath();
-                ctx.moveTo(0, y);
+            const avgSpeed = playData.speedHistory.reduce((a, b) => a + b, 0) / (playData.speedHistory.length || 1);
+            const speedScore = Math.min(1.0, avgSpeed / maxSpeed);
 
-                for (let x = 0; x < width; x += 10) {
-                    const noise = Math.cos(x * 0.05 + y) * distortion * (Math.random() * 0.5 + 0.5);
-                    ctx.lineTo(x, y + noise);
+            const crashScore = Math.min(1.0, playData.collisionCount * 0.15);
+
+            const genParams = {
+                paletteId: maxColor,
+                warpAmp: 0.1 + steerScore * 0.3,   // 控えめに
+                warpFreq: 0.3 + steerScore * 0.2,  // 控えめに
+                density: 0.2 + speedScore * 0.3,   // 疑らしめに
+                noise: crashScore * 0.3,           // 控えめに
+                style: crashScore > 0.7 ? 'glitch' : (steerScore > 0.8 ? 'organic' : 'classic')
+            };
+
+            // テキスタイル生成
+            const dataUrl = generateTextile(genParams);
+
+            const imgEl = document.getElementById('material-image');
+            imgEl.src = dataUrl;
+            imgEl.onload = () => {
+                document.getElementById('loading-text').style.display = 'none';
+                imgEl.style.display = 'block';
+                document.getElementById('material-id').style.display = 'block';
+                document.getElementById('spec-info').style.display = 'block';
+                document.getElementById('share-buttons').style.display = 'flex';
+                document.getElementById('reserve-btn').style.display = 'block';
+                document.getElementById('data-explanation').style.display = 'block';
+            };
+
+            const date = new Date();
+            const idStr = `MAT-${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(Math.random() * 9999)}`;
+            document.getElementById('material-id').innerText = idStr;
+
+            const styleName = genParams.style.toUpperCase();
+            const dens = Math.floor(genParams.density * 100);
+            document.getElementById('spec-info').innerHTML = `STYLE: ${styleName} / DENSITY: ${dens}% <br>PALETTE: ${genParams.paletteId.toUpperCase()}`;
+        }
+
+        // --- テキスタイル生成エンジン ---
+        const textileEngine = {
+            palettes: {
+                bw_std: { bg: '#ffffff', warp: '#000000', weft: '#000000' },
+                swiss: { bg: '#ffffff', warp: '#e60012', weft: '#111111' },
+                bauhaus: { bg: '#ffffff', warp: '#00549f', weft: '#fecb00' },
+                pop: { bg: '#ffffff', warp: '#ff0066', weft: '#00ccff' },
+                retro: { bg: '#ffffff', warp: '#ff4500', weft: '#008080' },
+                navy: { bg: '#ffffff', warp: '#001133', weft: '#d4af37' },
+                forest: { bg: '#ffffff', warp: '#225522', weft: '#8b4513' },
+                mono_grey: { bg: '#ffffff', warp: '#444444', weft: '#aaaaaa' }
+            },
+            warpSeed: 1,
+            weftSeed: 1,
+            warpRnd: function () { this.warpSeed = (this.warpSeed * 9301 + 49297) % 233280; return this.warpSeed / 233280; },
+            weftRnd: function () { this.weftSeed = (this.weftSeed * 7901 + 31337) % 233280; return this.weftSeed / 233280; },
+            hexToRgba: function (hex, alpha) {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+        };
+
+        function generateTextile(params) {
+            const tCanvas = document.getElementById('textileCanvas');
+            const tCtx = tCanvas.getContext('2d');
+            const W = tCanvas.width;
+            const H = tCanvas.height;
+
+            textileEngine.warpSeed = Date.now();
+            textileEngine.weftSeed = Date.now() + 99999;
+
+            const pal = textileEngine.palettes[params.paletteId] || textileEngine.palettes.bw_std;
+
+            tCtx.fillStyle = pal.bg;
+            tCtx.fillRect(0, 0, W, H);
+
+            const warpSpacing = 20 + (1 - params.density) * 70;
+            const weftSpacing = 20 + (1 - params.density) * 70;
+            const warpAmp = params.warpAmp * 60;   // 160→から控えめに
+            const weftAmp = params.warpAmp * 60;
+            const warpFreq = 0.002 + params.warpFreq * 0.02;  // 0.04→から控えめに
+            const weftFreq = 0.002 + params.warpFreq * 0.02;
+            const lineW = 1.0 + 0.3 * 25;
+            const noise = params.noise;
+            const alpha = 1.0;
+            const style = params.style;
+
+            tCtx.lineCap = 'round';
+            tCtx.lineJoin = 'round';
+
+            // WARP
+            tCtx.strokeStyle = textileEngine.hexToRgba(pal.warp, alpha);
+            tCtx.lineWidth = lineW;
+            for (let x = warpSpacing / 2; x < W; x += warpSpacing) {
+                if (textileEngine.warpRnd() < noise * 0.15) continue;
+                tCtx.beginPath();
+                const phase = textileEngine.warpRnd() * Math.PI * 2;
+                const localAmp = warpAmp * (0.6 + textileEngine.warpRnd() * 0.4);
+                const localFreq = warpFreq * (0.7 + textileEngine.warpRnd() * 0.6);
+                for (let y = 0; y <= H; y += 4) {
+                    let wave = Math.sin(y * localFreq + phase) * localAmp;
+                    if (noise > 0) wave += (textileEngine.warpRnd() - 0.5) * noise * 30;  // 80→から控えめに
+                    if (style === 'organic') wave += Math.sin(y * 0.005 + x * 0.002) * 40;
+                    else if (style === 'glitch') if (textileEngine.warpRnd() < 0.02) wave += (textileEngine.warpRnd() - 0.5) * 200;
+                    const px = x + wave;
+                    y === 0 ? tCtx.moveTo(px, y) : tCtx.lineTo(px, y);
                 }
-                ctx.stroke();
+                tCtx.stroke();
             }
-            ctx.globalAlpha = 1.0;
+            // WEFT描画は削除（縦線のみ一色で構成）
 
-            // 3. データビジュアライゼーション（心電図のようなグラフ波形を重ねる）
-            // 実際に走行した speedHistory を波形として描画
-            if (playData.speedHistory && playData.speedHistory.length > 0) {
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 2;
-                ctx.globalCompositeOperation = 'overlay';
+            const g = tCtx.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.9);
+            g.addColorStop(0, 'rgba(255,255,255,0)');
+            g.addColorStop(1, 'rgba(255,255,255,0.7)');
+            tCtx.fillStyle = g;
+            tCtx.fillRect(0, 0, W, H);
 
-                ctx.beginPath();
-                const sliceWidth = width / playData.speedHistory.length;
-                let x = 0;
-
-                playData.speedHistory.forEach((val, i) => {
-                    // 中心を軸に、速度に応じて振幅を変える
-                    const y = (height / 2) + ((val - 0.5) * height * 0.8);
-                    if (i === 0) ctx.moveTo(x, y);
-                    else ctx.lineTo(x, y);
-                    x += sliceWidth;
-                });
-                ctx.stroke();
-
-                // ステアリング履歴（軌跡）も重ねる
-                if (playData.trajectory && playData.trajectory.length > 0) {
-                    ctx.strokeStyle = style.textColor;
-                    ctx.globalAlpha = 0.6;
-                    ctx.beginPath();
-                    // データをリサンプリングして合わせる
-                    const step = Math.ceil(playData.trajectory.length / width); // widthに合わせて間引く
-
-                    x = 0;
-                    for (let i = 0; i < width; i++) {
-                        const idx = Math.floor(i * (playData.trajectory.length / width));
-                        const val = playData.trajectory[idx] || 0;
-                        // 下部に配置。valは-2~2なので、適度にスケール
-                        const y = (height * 0.75) + (val * 100);
-                        if (i === 0) ctx.moveTo(x, y);
-                        else ctx.lineTo(x, y);
-                        x += 1;
-                    }
-                    ctx.stroke();
-                }
-                ctx.globalCompositeOperation = 'source-over';
-            }
-
-            // 4. 工業的なオーバーレイ（枠線やスペック情報）
-            drawIndustrialOverlay(ctx, width, height, data, style);
+            return tCanvas.toDataURL('image/jpeg', 0.9);
         }
 
-        function drawIndustrialOverlay(ctx, width, height, data, style) {
-            // 枠線
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(20, 20, width - 40, height - 40);
-
-            // 四隅のマーカー
-            ctx.fillStyle = '#fff';
-            const markerSize = 20;
-            ctx.fillRect(20, 20, markerSize, markerSize);
-            ctx.fillRect(width - 20 - markerSize, 20, markerSize, markerSize);
-            ctx.fillRect(20, height - 20 - markerSize, markerSize, markerSize);
-            ctx.fillRect(width - 20 - markerSize, height - 20 - markerSize, markerSize, markerSize);
-
-            // グリッド装飾
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            for (let i = 100; i < height - 100; i += 100) {
-                ctx.moveTo(20, i);
-                ctx.lineTo(width - 20, i);
-            }
-            ctx.stroke();
-
-            // テキスト情報（画像内に焼き込む）
-            ctx.fillStyle = '#fff';
-            ctx.font = '24px "DIN 2014", "Barlow"';
-            ctx.textAlign = 'right';
-            ctx.fillText("REF: " + Date.now().toString(16).toUpperCase(), width - 40, 60);
-            ctx.fillText("DENSITY: " + data.density.toFixed(2), width - 40, 90);
-            ctx.fillText("TEX: " + data.texture.toFixed(2), width - 40, 120);
-        }
-
-        function addGlitchEffect(ctx, width, height, texture) {
-            // グリッチ効果（textureが高いほど強い）
-            const glitchIntensity = texture * 40;
-            const glitchLines = Math.floor(texture * 50);
-
-            // RGBシフト（色収差）
-            if (texture > 0.3) {
-                const shift = texture * 10;
-                const imageData = ctx.getImageData(0, 0, width, height);
-                // 簡易的な処理：全体を複製してずらして合成描画するのが重いので、
-                // 这里では矩形コピーで代用
-                ctx.globalCompositeOperation = 'screen';
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-                // 本来はピクセル操作だが、Canvas APIで簡易エフェクト
-                // 赤チャンネルだけ右にずらす的な表現の代わりに、赤っぽい矩形をランダム合成
-            }
-
-            ctx.globalCompositeOperation = 'difference';
-            for (let i = 0; i < glitchLines; i++) {
-                const y = Math.random() * height;
-                const h = Math.random() * 5 + 1;
-                const offset = (Math.random() - 0.5) * glitchIntensity;
-
-                // 画像の一部をずらす
-                // ctx.drawImage(canvas, 0, y, width, h, offset, y, width, h); // 再帰描画になるので注意
-                // 代わりに色反転バーを描く
-                ctx.fillStyle = i % 2 === 0 ? '#fff' : '#000';
-                ctx.fillRect(0, y, width, h);
-            }
-            ctx.globalCompositeOperation = 'source-over';
-
-            // ノイズドット
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            const noiseCount = texture * 2000;
-            for (let i = 0; i < noiseCount; i++) {
-                const x = Math.random() * width;
-                const y = Math.random() * height;
-                ctx.fillRect(x, y, 1, 1);
-            }
-        }
-
-        // シェア機能
+        // --- 共有機能 ---
         function shareToInstagram() {
             const imageUrl = document.getElementById('material-image').src;
-            // Instagramは直接シェアできないので、画像をダウンロードして手動でシェア
-            downloadImage(imageUrl);
-            alert('画像をダウンロードしました。Instagramで手動でシェアしてください。');
+            // ダウンロードトリガーなど
+            const a = document.createElement('a');
+            a.href = imageUrl;
+            a.download = 'industrial_run_textile.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            alert("画像を保存しました。Instagram等でシェアしてください。");
         }
-
         function shareToTwitter() {
-            const text = encodeURIComponent('第一回 繊維産業研究報告会 -車と繊維-');
-            const url = encodeURIComponent(window.location.href);
-            window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+            window.open(`https://twitter.com/intent/tweet?text=Industrial Run Material Generated: ${document.getElementById('material-id').innerText}`, '_blank');
         }
-
         function shareToLINE() {
-            const text = encodeURIComponent('第一回 繊維産業研究報告会 -車と繊維-');
-            const url = encodeURIComponent(window.location.href);
-            window.open(`https://social-plugins.line.me/lineit/share?url=${url}&text=${text}`, '_blank');
+            window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(location.href)}`, '_blank');
         }
-
-        function downloadImage(imageUrl) {
-            const link = document.createElement('a');
-            link.href = imageUrl;
-            link.download = 'material-id.png';
-            link.click();
-        }
-
         function goToReservation() {
-            // 予約ページへ遷移（PeatixまたはGoogleフォーム）
-            // TODO: 実際のPeatixまたはGoogleフォームのURLに変更してください
-            window.open('https://peatix.com/event/4782352/view', '_blank');
+            window.open('https://example.com/reserve', '_blank');
         }
 
         init();
+
     </script>
 </body>
 
