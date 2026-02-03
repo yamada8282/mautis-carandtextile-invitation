@@ -536,15 +536,10 @@
             // スマホタッチ制御（位置ベース：左側タッチ→左、右側タッチ→右、中央→直進）
 
             function updateTouchSteering(touchX) {
-                const leftZone = width / 3;
-                const rightZone = width * 2 / 3;
-                if (touchX < leftZone) {
-                    touchSteerDir = -1; // 左
-                } else if (touchX > rightZone) {
-                    touchSteerDir = 1;  // 右
-                } else {
-                    touchSteerDir = 0;  // 中央（直進）
-                }
+                // 滑らかなステアリング（-1.0 ～ 1.0）
+                // 画面の左端 = -1.0、中央 = 0、右端 = 1.0
+                const normalizedX = (touchX / width) * 2 - 1; // -1.0 ～ 1.0
+                touchSteerDir = Math.max(-1, Math.min(1, normalizedX)); // クランプ
             }
 
             canvas.addEventListener('touchstart', e => {
@@ -761,8 +756,14 @@
             // 車の描画（常に画面中央下）
             // 操作に応じて画像を切り替え
             let currentCarImg = carImgStraight;
-            if (keyLeft) currentCarImg = carImgLeft;
-            else if (keyRight) currentCarImg = carImgRight;
+            // PC: キーボード、スマホ: タッチ位置
+            if (isMobile) {
+                if (touchSteerDir < -0.2) currentCarImg = carImgLeft;
+                else if (touchSteerDir > 0.2) currentCarImg = carImgRight;
+            } else {
+                if (keyLeft) currentCarImg = carImgLeft;
+                else if (keyRight) currentCarImg = carImgRight;
+            }
 
             if (currentCarImg.complete) {
                 // スマホ（ローアングル）なら少し大きく表示して迫力を出す
