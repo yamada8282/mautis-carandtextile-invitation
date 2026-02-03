@@ -242,11 +242,13 @@
             display: none;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             color: #000;
             font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
             overflow-y: auto;
-            padding: 40px 0;
+            -webkit-overflow-scrolling: touch;
+            padding: 60px 20px;
+            box-sizing: border-box;
         }
 
         #result-screen.active {
