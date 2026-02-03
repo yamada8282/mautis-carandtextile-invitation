@@ -519,18 +519,33 @@
                 if (e.key === 'ArrowLeft') keyLeft = false;
                 if (e.key === 'ArrowRight') keyRight = false;
             });
-            // スマホタッチ
+            // スマホタッチ（ドラッグ操作）
+            let lastTouchX = null;
             canvas.addEventListener('touchstart', e => {
                 if (gameState !== 'playing') return;
                 e.preventDefault();
-                const touchX = e.touches[0].clientX;
-                if (touchX < width / 2) keyLeft = true; else keyRight = true;
-                keyFaster = true; // タッチ中は加速
+                lastTouchX = e.touches[0].clientX;
             }, { passive: false });
+
+            canvas.addEventListener('touchmove', e => {
+                if (gameState !== 'playing' || lastTouchX === null) return;
+                e.preventDefault();
+                const currentX = e.touches[0].clientX;
+                const diff = currentX - lastTouchX;
+
+                // 感度の設定（少しの移動で反応するように）
+                const threshold = 2;
+                if (diff < -threshold) { keyLeft = true; keyRight = false; }
+                else if (diff > threshold) { keyLeft = false; keyRight = true; }
+                else { keyLeft = false; keyRight = false; }
+
+                lastTouchX = currentX;
+            }, { passive: false });
+
             canvas.addEventListener('touchend', e => {
                 e.preventDefault();
                 keyLeft = false; keyRight = false;
-                keyFaster = false; // 指を離したら加速停止
+                lastTouchX = null;
             });
 
 
@@ -844,8 +859,10 @@
                     return;
                 }
 
-                // 速度計算
-                if (keyFaster) speed += accel; else speed += decel;
+                // 速度計算（常に自動加速）
+                // ブレーキ（下キー）があれば減速、それ以外は加速
+                if (keySlower) speed += decel;
+                else speed += accel;
 
                 // 現在のセグメントを取得
                 const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
