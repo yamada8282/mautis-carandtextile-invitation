@@ -376,6 +376,14 @@
         </div>
         <button class="reserve-btn" id="reserve-btn" style="display: none;" onclick="goToReservation()">RESERVE
             TICKET</button>
+        <div id="data-explanation"
+            style="display: none; font-size: 9px; color: #999; margin-top: 30px; max-width: 300px; text-align: left; line-height: 1.6;">
+            <div style="margin-bottom: 8px; font-weight: 500; color: #666;">― データ反映について ―</div>
+            <div>・蛇行度 → 織りパターンの歪み</div>
+            <div>・走行速度 → 糸の密度</div>
+            <div>・衝突/コースアウト回数 → テクスチャの粗さ</div>
+            <div style="margin-top: 8px; font-size: 8px;">あなたの運転が、世界に一つだけの素材を生成しました。</div>
+        </div>
     </div>
 
     <script>
@@ -408,9 +416,9 @@
         let playerX = 0;
         let playerZ = 0;
         let speed = 0;
-        const speedMultiplier = 0.004; // 進むスピード全体の倍率（1より小さくすると遅くなる）
+        const speedMultiplier = 0.006; // 進むスピード全体の倍率（1より小さくすると遅くなる）
         const maxSpeed = 12000; // 最高速度
-        const accel = 10;      // 加速度
+        const accel = 15;      // 加速度
         const breaking = -200;  // 減速度
         const decel = -50;      // 自然減速
         const offRoadDecel = -200;
@@ -913,7 +921,7 @@
                 playerX += curveForce;
 
                 // 左右操作（適度な感度で）
-                const steerSpeed = 0.01;
+                const steerSpeed = isMobile ? 0.025 : 0.01; // スマホは感度高め
                 // PC: キーボード、スマホ: タッチ位置ベース
                 let steerDir = 0;
                 if (isMobile) {
@@ -1024,6 +1032,7 @@
 
             document.getElementById('share-buttons').style.display = 'flex';
             document.getElementById('reserve-btn').style.display = 'block';
+            document.getElementById('data-explanation').style.display = 'block';
         }
 
         function generateMaterialId(data) {
