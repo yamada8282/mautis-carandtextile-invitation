@@ -897,7 +897,7 @@
 
                 // 速度計算
                 if (isMobile) {
-                    speed += accel; // スマホは自動加速
+                    speed += accel * 2; // スマホは自動加速（2倍速）
                     // ブレーキ操作を入れるならここで判定だが、要望により自動加速のみ
                 } else {
                     if (keyFaster) speed += accel; else speed += decel;
