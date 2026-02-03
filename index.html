@@ -1,21 +1,31 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>INDUSTRIAL RUN - Advanced</title>
+    <!-- Google Fonts: Noto Sans JP and Barlow (as alternative to DIN) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap"
+        rel="stylesheet">
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #000;
-            font-family: 'Courier New', Courier, monospace;
+            background-color: #fff;
+            /* 背景を白に */
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
         }
+
         canvas {
             display: block;
             width: 100%;
             height: 100vh;
         }
+
         /* CRTモニター風の走査線（少し薄くしました） */
         #scanlines {
             position: fixed;
@@ -28,52 +38,306 @@
             pointer-events: none;
             z-index: 10;
         }
+
         #ui-layer {
             position: absolute;
-            bottom: 30%;
+            top: 20%;
             width: 100%;
             text-align: center;
-            color: #fff;
-            font-size: 16px; 
-            font-weight: bold;
+            color: #000;
+            font-size: 13px;
             pointer-events: none;
-            text-shadow: 2px 2px 0 #000;
             z-index: 20;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            line-height: 1.5;
         }
+
         /* 速度計 */
         #speedometer {
             position: fixed;
             top: 20px;
             right: 20px;
-            color: #0f0;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 24px;
-            font-weight: bold;
-            text-shadow: 0 0 10px #0f0, 2px 2px 0 #000;
+            color: #000;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            font-size: 18px;
             pointer-events: none;
             z-index: 30;
-            background: rgba(0, 0, 0, 0.6);
             padding: 10px 15px;
-            border: 2px solid #0f0;
-            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            border-bottom: 2px solid #000;
         }
+
         #speedometer .label {
-            font-size: 12px;
-            color: #0a0;
+            font-size: 10px;
+            color: #000;
             margin-bottom: 5px;
         }
+
         #speedometer .speed {
-            font-size: 32px;
+            font-size: 24px;
             line-height: 1;
         }
+
         #speedometer .unit {
-            font-size: 14px;
-            color: #0a0;
+            font-size: 11px;
+            color: #000;
             margin-left: 5px;
+        }
+
+        /* スタート画面 */
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #fff;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            color: #000;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            letter-spacing: 0.1em;
+        }
+
+        #start-screen.hidden {
+            display: none;
+        }
+
+        #start-screen .event-title {
+            font-size: 22px;
+            margin-bottom: 5px;
+            text-align: center;
+            color: #000;
+            text-transform: uppercase;
+        }
+
+        #start-screen .event-date {
+            font-size: 12px;
+            margin-bottom: 60px;
+            color: #000;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            display: inline-block;
+        }
+
+        #start-screen .init-button {
+            padding: 15px 50px;
+            background: #fff;
+            border: 1px solid #000;
+            color: #000;
+            border: 1px solid #000;
+            color: #000;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.1s;
+        }
+
+        #start-screen .init-button:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        #start-screen .init-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: skewX(-20deg);
+            animation: shine 3s infinite;
+        }
+
+        @keyframes shine {
+            0% {
+                left: -100%;
+            }
+
+            20% {
+                left: 200%;
+            }
+
+            100% {
+                left: 200%;
+            }
+        }
+
+        #start-screen .glitch-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #start-screen .glitch-overlay.active {
+            animation: glitch 0.5s;
+        }
+
+        @keyframes glitch {
+            0% {
+                opacity: 0;
+                transform: translateX(0);
+            }
+
+            10% {
+                opacity: 1;
+                transform: translateX(-5px);
+            }
+
+            20% {
+                opacity: 0.8;
+                transform: translateX(5px);
+            }
+
+            30% {
+                opacity: 1;
+                transform: translateX(-3px);
+            }
+
+            40% {
+                opacity: 0.9;
+                transform: translateX(3px);
+            }
+
+            50% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* 結果画面 */
+        #result-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #fff;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #000;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+        }
+
+        #result-screen.active {
+            display: flex;
+        }
+
+        #result-screen .loading {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        #result-screen .header {
+            font-size: 20px;
+            margin-bottom: 30px;
+            color: #000;
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+            width: 90%;
+        }
+
+        #result-screen .loading {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        #result-screen .material-image {
+            max-width: 90%;
+            max-height: 50vh;
+            border: 1px solid #000;
+            margin: 20px 0;
+            background: #fff;
+        }
+
+        #result-screen .material-id {
+            font-size: 18px;
+            margin: 15px 0;
+            text-align: center;
+            color: #000;
+        }
+
+        #result-screen .spec-info {
+            font-size: 14px;
+            margin: 10px 0;
+            text-align: center;
+            color: #666;
+        }
+
+        #result-screen .share-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        #result-screen .share-btn {
+            padding: 10px 20px;
+            background: #fff;
+            border: 1px solid #000;
+            color: #000;
+            cursor: pointer;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        #result-screen .share-btn:hover {
+            background: #000;
+            color: #fff;
+        }
+
+        #result-screen .reserve-btn {
+            padding: 15px 30px;
+            background: #000;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            font-size: 16px;
+            margin-top: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s;
+        }
+
+        #result-screen .reserve-btn:hover {
+            background: #333;
+            color: #fff;
         }
     </style>
 </head>
+
 <body>
+
+    <!-- スタート画面 -->
+    <div id="start-screen">
+        <div class="glitch-overlay" id="glitch-overlay"></div>
+        <div class="event-title">第一回 繊維産業研究報告会<br>-車と繊維-</div>
+        <div class="event-date">2026.02.28 SAT</div>
+        <button class="init-button" id="init-button">INITIALIZE ANALYSIS</button>
+    </div>
 
     <div id="scanlines"></div>
     <div id="ui-layer">
@@ -84,6 +348,22 @@
         <div class="speed"><span id="speedValue">0</span><span class="unit">km/h</span></div>
     </div>
     <canvas id="gameCanvas"></canvas>
+
+    <!-- 結果画面 -->
+    <div id="result-screen">
+        <div class="header">MATERIAL ANALYSIS REPORT</div>
+        <div class="loading" id="loading-text">ANALYZING MATERIAL DATA...</div>
+        <img id="material-image" class="material-image" style="display: none;" />
+        <div class="material-id" id="material-id" style="display: none;"></div>
+        <div class="spec-info" id="spec-info" style="display: none;"></div>
+        <div class="share-buttons" id="share-buttons" style="display: none;">
+            <button class="share-btn" onclick="shareToInstagram()">SHARE DATA</button>
+            <button class="share-btn" onclick="shareToTwitter()">Twitter</button>
+            <button class="share-btn" onclick="shareToLINE()">LINE</button>
+        </div>
+        <button class="reserve-btn" id="reserve-btn" style="display: none;" onclick="goToReservation()">RESERVE
+            TICKET</button>
+    </div>
 
     <script>
         // --- 設定エリア ---
@@ -100,10 +380,10 @@
         const ctx = canvas.getContext('2d');
         const caption = document.getElementById('caption');
         const speedValue = document.getElementById('speedValue');
-        
+
         let width, height;
-        let position = 0;       
-        let playerX = 0;        
+        let position = 0;
+        let playerX = 0;
         let playerZ = 0;
         let speed = 0;
         const speedMultiplier = 0.004; // 進むスピード全体の倍率（1より小さくすると遅くなる）
@@ -111,20 +391,65 @@
         const accel = 10;      // 加速度
         const breaking = -200;  // 減速度
         const decel = -50;      // 自然減速
-        const offRoadDecel = -200; 
+        const offRoadDecel = -200;
         const offRoadLimit = 2000; // コースアウト判定幅
 
         let keyLeft = false;
         let keyRight = false;
         let keyFaster = true; // 自動アクセルON
 
+        // --- ゲーム状態管理 ---
+        let gameState = 'start'; // 'start', 'playing', 'result'
+
+        // --- プレイデータ収集 ---
+        const gameDuration = 30000; // 30秒（ミリ秒）
+        let gameStartTime = null;
+        let gameEnded = false;
+        let playData = {
+            weaveType: 0,      // 蛇行度（0-1: 直線的〜曲線的）
+            texture: 0,        // ダメージ/接触（0-1: 綺麗〜劣化）
+            density: 0,        // 速度域/密度（0-1: 遅い〜速い）
+            // 生データ
+            steeringHistory: [],  // 左右操作の履歴
+            speedHistory: [],    // 速度の履歴
+            trajectory: [],      // 走行軌跡（playerX）
+            collisionCount: 0,   // コースアウト回数
+            totalDistance: 0      // 総移動距離
+        };
+
+        // 蛇行度計算用
+        let lastPlayerX = 0;
+        let steeringVariance = 0;
+        let steeringInputSum = 0;       // 入力（左右）の総量
+        let steeringFlipCount = 0;      // 左右の切り返し回数
+        let lastSteerDir = 0;           // -1, 0, 1
+
         // 画像
-        const carImg = new Image(); carImg.src = 'car.png'; 
-        const bgImg = new Image(); bgImg.src = 'bg2.png';
+        const carImgStraight = new Image(); carImgStraight.src = 'car0.png';
+        const carImgLeft = new Image(); carImgLeft.src = 'car_left.png';
+        const carImgRight = new Image(); carImgRight.src = 'car_right.png';
+
+        // 背景画像は使わないのでコメントアウト
+        // const bgImg = new Image(); bgImg.src = 'bg2.png';
 
         // 道路データ
         const segments = [];
         const totalSegments = 1600; // コース全長
+
+        // 障害物データ
+        const obstacles = [];
+        function initObstacles() {
+            obstacles.length = 0;
+            // 障害物をランダムに配置（不純物として）
+            for (let i = 0; i < 50; i++) {
+                obstacles.push({
+                    segmentIndex: Math.floor(Math.random() * totalSegments),
+                    x: (Math.random() - 0.5) * 1.5, // 道路の左右に配置
+                    size: 0.3 + Math.random() * 0.4,
+                    hit: false
+                });
+            }
+        }
 
         // --- 数学関数（Jake Gordon氏のロジックに基づく） ---
         function project(p, cameraX, cameraY, cameraZ, cameraDepth) {
@@ -154,9 +479,9 @@
         }
 
         function addRoad(enter, hold, leave, curve) {
-            for(let n = 0 ; n < enter ; n++) addSegment(easeIn(0, curve, n/enter));
-            for(let n = 0 ; n < hold  ; n++) addSegment(curve);
-            for(let n = 0 ; n < leave ; n++) addSegment(easeInOut(curve, 0, n/leave));
+            for (let n = 0; n < enter; n++) addSegment(easeIn(0, curve, n / enter));
+            for (let n = 0; n < hold; n++) addSegment(curve);
+            for (let n = 0; n < leave; n++) addSegment(easeInOut(curve, 0, n / leave));
         }
 
         function initRoad() {
@@ -174,9 +499,10 @@
         function init() {
             resize();
             window.addEventListener('resize', resize);
-            
+
             // 操作系
             window.addEventListener('keydown', e => {
+                if (gameState !== 'playing') return;
                 if (e.key === 'ArrowLeft') keyLeft = true;
                 if (e.key === 'ArrowRight') keyRight = true;
             });
@@ -185,75 +511,142 @@
                 if (e.key === 'ArrowRight') keyRight = false;
             });
             // スマホタッチ
-            canvas.addEventListener('touchstart', e => { 
-                e.preventDefault(); 
+            canvas.addEventListener('touchstart', e => {
+                if (gameState !== 'playing') return;
+                e.preventDefault();
                 const touchX = e.touches[0].clientX;
-                if(touchX < width/2) keyLeft = true; else keyRight = true;
-            }, {passive: false});
+                if (touchX < width / 2) keyLeft = true; else keyRight = true;
+            }, { passive: false });
             canvas.addEventListener('touchend', e => {
                 e.preventDefault();
                 keyLeft = false; keyRight = false;
             });
 
+
+            // BGM設定
+            window.bgm = new Audio('preview (3).mp3');
+            window.bgm.loop = true;
+            window.bgm.volume = 0.5; // 音量は控えめに
+
+            // ナレーション設定
+            window.narration = new Audio('ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3');
+            window.narration.volume = 1.0;
+
+            // モーター駆動音設定
+            window.motor = new Audio('preview (5).mp3');
+            window.motor.loop = true;
+            window.motor.volume = 0.6;
+
+            // AudioContext設定（音圧反応用）
+            let beatPower = 0; // 0.0 ~ 1.0
+
+            // スタート画面のボタン
+            document.getElementById('init-button').addEventListener('click', () => {
+                // 再生開始（AudioContextは使用せず、通常のAudio再生を行う）
+                // ※ローカル環境等での再生トラブル回避のため
+                window.bgm.play().catch(e => console.log('BGM play failed:', e));
+                window.motor.play().catch(e => console.log('Motor play failed:', e));
+
+                // ナレーションは少し待ってから再生
+                setTimeout(() => {
+                    window.narration.play().catch(e => console.log('Narration play failed:', e));
+                }, 2000);
+
+                startGameTransition();
+            });
+
             initRoad();
+            initObstacles();
+
+            // ゲームループは状態に応じて実行
             requestAnimationFrame(loop);
+
+            // 音圧解析関数は不要になったため削除
+        }
+
+        function startGameTransition() {
+            // グリッチエフェクト
+            const glitchOverlay = document.getElementById('glitch-overlay');
+            glitchOverlay.classList.add('active');
+
+            setTimeout(() => {
+                // スタート画面を非表示
+                document.getElementById('start-screen').classList.add('hidden');
+                // ゲーム開始
+                startGame();
+            }, 500);
+        }
+
+        function startGame() {
+            gameState = 'playing';
+            gameStartTime = Date.now();
+            gameEnded = false;
+            playData = {
+                weaveType: 0,
+                texture: 0,
+                density: 0,
+                steeringHistory: [],
+                speedHistory: [],
+                trajectory: [],
+                collisionCount: 0,
+                totalDistance: 0
+            };
+            lastPlayerX = 0;
+            steeringVariance = 0;
+            steeringInputSum = 0;
+            steeringFlipCount = 0;
+            lastSteerDir = 0;
+            position = 0;
+            playerX = 0;
+            speed = 0;
         }
 
         function resize() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
-            ctx.imageSmoothingEnabled = false; 
+            ctx.imageSmoothingEnabled = false;
         }
 
         // --- 描画ループ ---
         function render() {
+            if (gameState !== 'playing') return;
+
             ctx.clearRect(0, 0, width, height);
 
-            // 背景描画（パララックス効果付き）
-            // プレイヤーがカーブに入ると背景がズレる処理
-            const parallaxX = playerX * width * 0.1; // 少しズラす
-            if(bgImg.complete) {
-                const bgW = width;
-                const bgH = height;
-                // 簡易的なスクロール：画像を3枚並べてループさせる
-                // (今回は1枚絵を中央固定＋微振動させる簡易版)
-                const scale = Math.max(width / bgImg.width, height / bgImg.height);
-                const x = (width / 2) - (bgImg.width / 2) * scale - (playerX * 100); // ここで背景が動く
-                const y = (height / 2) - (bgImg.height / 2) * scale;
-                ctx.drawImage(bgImg, x, y, bgImg.width * scale, bgImg.height * scale);
-            } else {
-                ctx.fillStyle = '#000';
-                ctx.fillRect(0,0,width,height);
-            }
+            // 背景は真っ白に塗る
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, width, height);
 
             // 道路の計算と描画
             const baseSegment = segments[Math.floor(position / segmentLength) % segments.length];
             const basePercent = (position % segmentLength) / segmentLength;
             const playerSegment = segments[Math.floor((position + playerZ) / segmentLength) % segments.length];
             const playerPercent = ((position + playerZ) % segmentLength) / segmentLength;
-            
+
             let dx = -(baseSegment.curve * basePercent);
             let x = 0;
             const cameraDepth = 1 / Math.tan((fieldOfView / 2) * Math.PI / 180);
 
             let maxy = height;
+            const projected = new Array(totalSegments); // 可視範囲の投影結果（障害物描画用）
 
-            for(let n = 0 ; n < drawDistance ; n++) {
+            for (let n = 0; n < drawDistance; n++) {
                 const segment = segments[(baseSegment.index + n) % segments.length];
-                
+
                 // カーブ計算の心臓部
-                segment.p1.camera.x = playerX * roadWidth; 
+                segment.p1.camera.x = playerX * roadWidth;
                 project(segment.p1, (playerX * roadWidth) - x, cameraHeight, position - (segment.index < baseSegment.index ? totalSegments * segmentLength : 0), cameraDepth);
-                
+
                 // カーブの蓄積
                 x += dx;
                 dx += segment.curve;
 
                 project(segment.p2, (playerX * roadWidth) - x - dx, cameraHeight, position - (segment.index < baseSegment.index ? totalSegments * segmentLength : 0), cameraDepth);
 
-                if(segment.p1.camera.z <= cameraDepth || segment.p2.screen.y >= segment.p1.screen.y || segment.p2.screen.y >= maxy) continue;
+                if (segment.p1.camera.z <= cameraDepth || segment.p2.screen.y >= segment.p1.screen.y || segment.p2.screen.y >= maxy) continue;
 
-                // 描画
+                // 描画（ベルトコンベア風に）
+                // 道路のベース
                 ctx.fillStyle = segment.color;
                 ctx.beginPath();
                 ctx.moveTo(segment.p1.screen.x - segment.p1.screen.w, segment.p1.screen.y);
@@ -262,71 +655,572 @@
                 ctx.lineTo(segment.p1.screen.x + segment.p1.screen.w, segment.p1.screen.y);
                 ctx.fill();
 
+                // ベルトコンベアのライン（工業感を出す）
+                if (n % 5 === 0) {
+                    ctx.strokeStyle = '#333';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(segment.p1.screen.x - segment.p1.screen.w, segment.p1.screen.y);
+                    ctx.lineTo(segment.p2.screen.x - segment.p2.screen.w, segment.p2.screen.y);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(segment.p1.screen.x + segment.p1.screen.w, segment.p1.screen.y);
+                    ctx.lineTo(segment.p2.screen.x + segment.p2.screen.w, segment.p2.screen.y);
+                    ctx.stroke();
+                }
+
+                // 中央の分割線
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(segment.p1.screen.x, segment.p1.screen.y);
+                ctx.lineTo(segment.p2.screen.x, segment.p2.screen.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 障害物描画用に、このセグメントの投影結果を保存（p2の方が手前側）
+                projected[segment.index] = {
+                    x: segment.p2.screen.x,
+                    y: segment.p2.screen.y,
+                    w: segment.p2.screen.w
+                };
+
                 maxy = segment.p1.screen.y;
             }
 
+            // 障害物の描画（不純物として）
+            obstacles.forEach(obstacle => {
+                if (obstacle.hit) return;
+                const p = projected[obstacle.segmentIndex];
+                if (!p) return; // 今フレームでは画面内にいない
+
+                const obstacleScreenX = p.x + (obstacle.x * p.w);
+                const obstacleScreenY = p.y;
+                const radius = Math.max(6, obstacle.size * p.w * 0.03);
+
+                // 障害物を描画（赤い警告色）
+                ctx.fillStyle = '#f00';
+                ctx.beginPath();
+                ctx.arc(obstacleScreenX, obstacleScreenY, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 衝突判定（画面下の車付近）
+                const playerScreenX = width / 2;
+                const playerScreenY = height - 120;
+                const distanceToObstacle = Math.hypot(playerScreenX - obstacleScreenX, playerScreenY - obstacleScreenY);
+                if (distanceToObstacle < radius + 60) {
+                    playData.collisionCount += 2; // 障害物ヒットは重めに
+                    obstacle.hit = true;          // 一度だけカウント
+                    speed = Math.max(0, speed - 1500); // ヒットで減速して密度にも影響
+                }
+            });
+
             // 車の描画（常に画面中央下）
-            if(carImg.complete) {
-                const carDisplayWidth = width * 0.4; // 画面幅の20%
-                const ratio = carImg.height / carImg.width;
+            // 操作に応じて画像を切り替え
+            let currentCarImg = carImgStraight;
+            if (keyLeft) currentCarImg = carImgLeft;
+            else if (keyRight) currentCarImg = carImgRight;
+
+            if (currentCarImg.complete) {
+                const carDisplayWidth = width * 0.4; // 画面幅の40%
+                const ratio = currentCarImg.height / currentCarImg.width;
                 const carDisplayHeight = carDisplayWidth * ratio;
                 const carX = (width / 2) - (carDisplayWidth / 2);
-                
+
                 // カーブに合わせて車を少し揺らす（簡易スプライトアニメ風）
-                const bounce = Math.sin(Date.now() / 50) * 2; 
+                const bounce = Math.sin(Date.now() / 50) * 2;
                 const carY = height - carDisplayHeight - 20 + bounce;
 
-                ctx.drawImage(carImg, carX, carY, carDisplayWidth, carDisplayHeight);
+                ctx.drawImage(currentCarImg, carX, carY, carDisplayWidth, carDisplayHeight);
             }
 
-            // 字幕更新（距離に基づく）
-            const totalDist = totalSegments * segmentLength;
-            const prog = (position % totalDist) / totalDist;
-            
-            if(prog < 0.1) caption.innerText = "車の中には、誰にも触れられず...";
-            else if(prog < 0.25) caption.innerText = "役目を終えた繊維が息づいている";
-            else if(prog < 0.45) caption.innerText = "工業製品としての「車」を解体し";
-            else if(prog < 0.65) caption.innerText = "人間的な「衣服」へと紡ぎ直す";
-            else if(prog < 0.85) caption.innerText = "WELCOME TO THE EXHIBITION";
-            else caption.innerText = "PRESS TO RESERVE";
-            
+            // 字幕更新（時間経過に基づく）
+            const elapsed = Date.now() - gameStartTime;
+            // ナレーションに合わせて2秒遅らせる
+            const subtitleElapsed = elapsed - 1800;
+            const timeProg = Math.min(1.0, Math.max(0, subtitleElapsed) / gameDuration);
+
+            let textJP = "";
+            let textEN = "";
+
+            if (subtitleElapsed < 0) {
+                // 2秒未満は表示しない
+                textEN = "";
+                textJP = "";
+            }
+            else if (timeProg < 0.08) {
+                textEN = "Textiles carry stories within them.";
+                textJP = "繊維には、物語があります。";
+            }
+            else if (timeProg < 0.28) {
+                textEN = "Some gain character through years of use,<br>while others are discarded, never knowing a human touch.";
+                textJP = "何度も使われ、味わいを帯びた繊維。<br>誰にも触れられず、役目を果たせないまま廃棄される繊維。";
+            }
+            else if (timeProg < 0.45) {
+                textEN = "Inside every car, textiles live in silence.";
+                textJP = "車の中にも、ひっそりと息づく繊維があります。";
+            }
+            else if (timeProg < 0.60) {
+                textEN = "Seats, floors, filters, and cushions.";
+                textJP = "シート、フロア、フィルター、クッション。";
+            }
+            else if (timeProg < 0.80) {
+                textEN = "We gently unearth their hidden narratives<br>to weave new possibilities for the future.";
+                textJP = "私たちは、その物語を丁寧にすくい上げ、<br>繊維が持つ新たな可能性を紡いでいきます。";
+            }
+            else {
+                textEN = "Proceed to the exhibition.";
+                textJP = "";
+            }
+
+            // 日英併記で表示（英語DIN, 日本語Noto Sans）
+            if (textEN && textJP !== "PRESS TO RESERVE") {
+                caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 0.9em;">${textEN}</span><br><span style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.8em; opacity: 0.9;">${textJP}</span>`;
+            } else {
+                caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif;">${textJP}</span>`;
+            }
+
             // 速度計の更新（実際の進行速度をkm/hに変換）
             const actualSpeed = speed * speedMultiplier * 2.5; // 適切なスケールでkm/hに変換
             speedValue.textContent = Math.floor(actualSpeed);
+
+            // --- フェードアウト処理 (25秒 = 25000ms から開始) ---
+            // ※ bgm, narration 変数はグローバルスコープにある必要があります
+            if (elapsed > 25000) {
+                const fadeDuration = 5000; // 5秒かけてフェード
+                const fadeProg = Math.min(1.0, (elapsed - 25000) / fadeDuration);
+
+                // 画面を白くする
+                ctx.fillStyle = `rgba(255, 255, 255, ${fadeProg})`;
+                ctx.fillRect(0, 0, width, height);
+
+                // 音量を下げる（変数が存在する場合のみ）
+                // 音量を下げる（変数が存在する場合のみ）
+                if (window.bgm) {
+                    const newVol = Math.max(0, 0.5 * (1.0 - fadeProg));
+                    window.bgm.volume = newVol;
+                }
+                if (window.narration) {
+                    window.narration.volume = Math.max(0, 1.0 * (1.0 - fadeProg));
+                }
+                if (window.motor) {
+                    window.motor.volume = Math.max(0, 0.6 * (1.0 - fadeProg));
+                }
+            }
         }
 
         // --- メインループ ---
         function loop() {
-            // 速度計算
-            if (keyFaster) speed += accel; else speed += decel;
-            
-            // 現在のセグメントを取得
-            const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
-            
-            // カーブに沿って自然に曲がる力（Jake Gordon方式）
-            // カーブが右なら右に、左なら左に自然に移動する
-            const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.0002;
-            playerX += curveForce;
-            
-            // 左右操作（適度な感度で）
-            const steerSpeed = 0.01; // 操作感度は適度に
-            if (keyLeft)  playerX -= steerSpeed;
-            if (keyRight) playerX += steerSpeed;
+            if (gameState === 'start') {
+                // スタート画面では何もしない
+                requestAnimationFrame(loop);
+                return;
+            }
 
-            // 速度制限とコースアウト減速
-            if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) speed += offRoadDecel;
-            playerX = Math.max(-2, Math.min(2, playerX));
-            speed = Math.max(0, Math.min(maxSpeed, speed));
+            if (gameState === 'playing') {
+                if (gameEnded) {
+                    requestAnimationFrame(loop);
+                    return;
+                }
 
-            position += speed * speedMultiplier; // 進行速度を全体にゆっくりにする
-            while (position >= totalSegments * segmentLength) position -= totalSegments * segmentLength;
-            while (position < 0) position += totalSegments * segmentLength;
+                // 30秒制限チェック
+                const elapsed = Date.now() - gameStartTime;
+                if (elapsed >= gameDuration) {
+                    endGame();
+                    requestAnimationFrame(loop);
+                    return;
+                }
 
-            render();
+                // 速度計算
+                if (keyFaster) speed += accel; else speed += decel;
+
+                // 現在のセグメントを取得
+                const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
+
+                // カーブに沿って自然に曲がる力（Jake Gordon方式）
+                const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.0002;
+                playerX += curveForce;
+
+                // 左右操作（適度な感度で）
+                const steerSpeed = 0.01;
+                const steerDir = (keyRight ? 1 : 0) + (keyLeft ? -1 : 0); // -1,0,1
+                if (steerDir !== 0) {
+                    playerX += steerDir * steerSpeed;
+                    steeringInputSum += Math.abs(steerDir) * steerSpeed;
+                    if (lastSteerDir !== 0 && steerDir !== lastSteerDir) steeringFlipCount++;
+                    lastSteerDir = steerDir;
+                } else {
+                    lastSteerDir = 0;
+                }
+
+                // データ収集：蛇行度
+                const steeringChange = Math.abs(playerX - lastPlayerX);
+                playData.steeringHistory.push(steeringChange);
+                steeringVariance += steeringChange * steeringChange;
+                lastPlayerX = playerX;
+
+                // データ収集：速度と軌跡
+                const normalizedSpeed = speed / maxSpeed;
+                playData.speedHistory.push(normalizedSpeed);
+                playData.trajectory.push(playerX); // -2.0 ~ 2.0
+                playData.totalDistance += speed * speedMultiplier;
+
+                // コースアウト判定（接触/ダメージ）
+                if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) {
+                    speed += offRoadDecel;
+                    // コースアウトは軽いダメージとして扱う（障害物より軽い）
+                    playData.collisionCount += 0.5;
+                }
+
+                playerX = Math.max(-2, Math.min(2, playerX));
+                speed = Math.max(0, Math.min(maxSpeed, speed));
+
+                position += speed * speedMultiplier;
+                while (position >= totalSegments * segmentLength) position -= totalSegments * segmentLength;
+                while (position < 0) position += totalSegments * segmentLength;
+
+                render();
+            }
+
+            // result状態でもループを続ける（結果画面のアニメーション用）
             requestAnimationFrame(loop);
+        }
+
+        function endGame() {
+            gameEnded = true;
+            gameState = 'result';
+
+            // データを正規化（0-1の範囲に）
+            // 蛇行度：実入力の量 + 切り返し回数（「押してるのに反映されない」を防ぐ）
+            const frames = Math.max(playData.speedHistory.length, 1);
+            const inputPerFrame = steeringInputSum / frames; // だいたい 0〜0.01 くらい
+            const flipScore = Math.min(1, steeringFlipCount / 20); // 20回切り返しで最大
+            const inputScore = Math.min(1, inputPerFrame / 0.004); // 0.004/frame を基準に正規化
+            playData.weaveType = Math.min(1, (inputScore * 0.7) + (flipScore * 0.3));
+
+            // ダメージ/接触：コースアウト回数
+            playData.texture = Math.min(1, playData.collisionCount / 10); // 10回で最大
+
+            // 速度域/密度：平均速度
+            const avgSpeed = playData.speedHistory.reduce((a, b) => a + b, 0) / Math.max(playData.speedHistory.length, 1);
+            playData.density = avgSpeed;
+
+            // 結果画面を表示
+            showResultScreen();
+        }
+
+        async function showResultScreen() {
+            const resultScreen = document.getElementById('result-screen');
+            resultScreen.classList.add('active');
+
+            // ローカルで画像を生成
+            const materialId = generateMaterialId(playData);
+            document.getElementById('loading-text').textContent = 'ANALYZING MATERIAL DATA...';
+
+            // 画像生成（少し時間をかけて演出）
+            setTimeout(() => {
+                const imageUrl = generateMaterialImage(playData);
+                displayResult(imageUrl, materialId);
+            }, 1500);
+        }
+
+        function displayResult(imageUrl, materialId) {
+            document.getElementById('loading-text').style.display = 'none';
+            document.getElementById('material-image').src = imageUrl;
+            document.getElementById('material-image').style.display = 'block';
+            document.getElementById('material-id').textContent = 'TYPE: ' + materialId;
+            document.getElementById('material-id').style.display = 'block';
+
+            // スペック情報を表示
+            const specInfo = document.getElementById('spec-info');
+            specInfo.innerHTML = `
+                COMPOSITION: WEAVE ${(playData.weaveType * 100).toFixed(0)}% | 
+                TEXTURE ${(playData.texture * 100).toFixed(0)}% | 
+                DENSITY ${(playData.density * 100).toFixed(0)}%
+            `;
+            specInfo.style.display = 'block';
+
+            document.getElementById('share-buttons').style.display = 'flex';
+            document.getElementById('reserve-btn').style.display = 'block';
+        }
+
+        function generateMaterialId(data) {
+            // データに基づいてマテリアルIDを決定。より工業的なネーミングに。
+            const types = [];
+
+            // WEAVE判定
+            if (data.weaveType < 0.2) types.push("RIGID");
+            else if (data.weaveType < 0.5) types.push("FLEX");
+            else types.push("CHAOS");
+
+            // DENSITY判定
+            if (data.density > 0.8) types.push("HIGH-DENSITY");
+            else if (data.density < 0.4) types.push("LOW-GAUGE");
+            else types.push("STANDARD");
+
+            // TEXTURE判定
+            if (data.texture > 0.8) types.push("DAMAGED");
+            else if (data.texture > 0.4) types.push("USED");
+            else types.push("VIRGIN");
+
+            // 組み合わせ語
+            if (data.weaveType > 0.8 && data.texture > 0.8) return "WRECKAGE MESH [UNSTABLE]";
+            if (data.density > 0.9 && data.weaveType < 0.1) return "MONOLITH FIBER [PROTOTYPE]";
+            if (data.texture < 0.1 && data.weaveType < 0.1) return "PURE SYNTHETIC [LAB-GROWN]";
+
+            return types.join(" ") + " FIBER";
+        }
+
+        function generateMaterialImage(data) {
+            // Canvas APIでプロシージャルに画像を生成（TouchDesigner風）
+            const canvas = document.createElement('canvas');
+            canvas.width = 800;
+            canvas.height = 1200;
+            const ctx = canvas.getContext('2d');
+
+            // 背景（スタイルに応じて）
+            const style = getMaterialStyle(data);
+            ctx.fillStyle = style.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // グリッド/線の生成
+            generateWeavePattern(ctx, canvas.width, canvas.height, data, style);
+
+            // ノイズ/グリッチ効果（textureに応じて）
+            if (data.texture > 0.3) {
+                addGlitchEffect(ctx, canvas.width, canvas.height, data.texture);
+            }
+
+            // マテリアルIDテキストを追加（結果画面で表示するので、ここでは最小限に）
+            // 実際のテキストは結果画面のHTMLで表示
+
+            return canvas.toDataURL('image/png');
+        }
+
+        function getMaterialStyle(data) {
+            // マテリアルのスタイルを決定
+            if (data.weaveType < 0.3 && data.texture < 0.2) {
+                return { bgColor: '#000', lineColor: '#fff', textColor: '#0f0' }; // ORDERLY MESH
+            }
+            if (data.weaveType > 0.7 && data.texture > 0.5) {
+                return { bgColor: '#000', lineColor: '#f00', textColor: '#f00' }; // CHAOS FIBER
+            }
+            if (data.density > 0.8) {
+                return { bgColor: '#000', lineColor: '#0ff', textColor: '#0ff' }; // HIGH-TENSION
+            }
+            if (data.texture > 0.6) {
+                return { bgColor: '#1a1a1a', lineColor: '#8b4513', textColor: '#8b4513' }; // RUST METAL
+            }
+            return { bgColor: '#000', lineColor: '#0f0', textColor: '#0f0' }; // デフォルト
+        }
+
+        function generateWeavePattern(ctx, width, height, data, style) {
+            // 高度なマテリアル生成ロジック
+
+            // 1. ベースレイヤー：ノイズグラデーション
+            for (let i = 0; i < 20; i++) {
+                ctx.fillStyle = style.bgColor;
+                ctx.globalAlpha = 0.1;
+                ctx.fillRect(Math.random() * width, Math.random() * height, Math.random() * 200, Math.random() * 200);
+            }
+            ctx.globalAlpha = 1.0;
+
+            // 2. 織り（Warp & Weft）の描画
+            // weaveTypeが高いほど、ノイズが大きく、線が有機的に歪む
+            const weaveDensity = 40 - (data.density * 30); // 密度が高い＝間隔が狭い
+            const distortion = data.weaveType * 100;
+
+            ctx.strokeStyle = style.lineColor;
+            ctx.lineWidth = 0.5;
+
+            // 縦糸
+            for (let x = 0; x < width; x += weaveDensity) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+
+                // ノイズ関数的に線を歪ませる
+                for (let y = 0; y < height; y += 10) {
+                    const noise = Math.sin(y * 0.05 + x) * distortion * (Math.random() * 0.5 + 0.5);
+                    const drift = Math.cos(y * 0.002) * (data.weaveType * 50);
+                    ctx.lineTo(x + noise + drift, y);
+                }
+
+                ctx.stroke();
+            }
+
+            // 横糸（Textureが高い場合、切れやムラを作る）
+            ctx.globalAlpha = 0.8;
+            for (let y = 0; y < height; y += weaveDensity) {
+                if (Math.random() < data.texture * 0.2) continue; // ダメージ感を出すため間引く
+
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+
+                for (let x = 0; x < width; x += 10) {
+                    const noise = Math.cos(x * 0.05 + y) * distortion * (Math.random() * 0.5 + 0.5);
+                    ctx.lineTo(x, y + noise);
+                }
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+
+            // 3. データビジュアライゼーション（心電図のようなグラフ波形を重ねる）
+            // 実際に走行した speedHistory を波形として描画
+            if (playData.speedHistory && playData.speedHistory.length > 0) {
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.globalCompositeOperation = 'overlay';
+
+                ctx.beginPath();
+                const sliceWidth = width / playData.speedHistory.length;
+                let x = 0;
+
+                playData.speedHistory.forEach((val, i) => {
+                    // 中心を軸に、速度に応じて振幅を変える
+                    const y = (height / 2) + ((val - 0.5) * height * 0.8);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    x += sliceWidth;
+                });
+                ctx.stroke();
+
+                // ステアリング履歴（軌跡）も重ねる
+                if (playData.trajectory && playData.trajectory.length > 0) {
+                    ctx.strokeStyle = style.textColor;
+                    ctx.globalAlpha = 0.6;
+                    ctx.beginPath();
+                    // データをリサンプリングして合わせる
+                    const step = Math.ceil(playData.trajectory.length / width); // widthに合わせて間引く
+
+                    x = 0;
+                    for (let i = 0; i < width; i++) {
+                        const idx = Math.floor(i * (playData.trajectory.length / width));
+                        const val = playData.trajectory[idx] || 0;
+                        // 下部に配置。valは-2~2なので、適度にスケール
+                        const y = (height * 0.75) + (val * 100);
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                        x += 1;
+                    }
+                    ctx.stroke();
+                }
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            // 4. 工業的なオーバーレイ（枠線やスペック情報）
+            drawIndustrialOverlay(ctx, width, height, data, style);
+        }
+
+        function drawIndustrialOverlay(ctx, width, height, data, style) {
+            // 枠線
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(20, 20, width - 40, height - 40);
+
+            // 四隅のマーカー
+            ctx.fillStyle = '#fff';
+            const markerSize = 20;
+            ctx.fillRect(20, 20, markerSize, markerSize);
+            ctx.fillRect(width - 20 - markerSize, 20, markerSize, markerSize);
+            ctx.fillRect(20, height - 20 - markerSize, markerSize, markerSize);
+            ctx.fillRect(width - 20 - markerSize, height - 20 - markerSize, markerSize, markerSize);
+
+            // グリッド装飾
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let i = 100; i < height - 100; i += 100) {
+                ctx.moveTo(20, i);
+                ctx.lineTo(width - 20, i);
+            }
+            ctx.stroke();
+
+            // テキスト情報（画像内に焼き込む）
+            ctx.fillStyle = '#fff';
+            ctx.font = '24px "DIN 2014", "Barlow"';
+            ctx.textAlign = 'right';
+            ctx.fillText("REF: " + Date.now().toString(16).toUpperCase(), width - 40, 60);
+            ctx.fillText("DENSITY: " + data.density.toFixed(2), width - 40, 90);
+            ctx.fillText("TEX: " + data.texture.toFixed(2), width - 40, 120);
+        }
+
+        function addGlitchEffect(ctx, width, height, texture) {
+            // グリッチ効果（textureが高いほど強い）
+            const glitchIntensity = texture * 40;
+            const glitchLines = Math.floor(texture * 50);
+
+            // RGBシフト（色収差）
+            if (texture > 0.3) {
+                const shift = texture * 10;
+                const imageData = ctx.getImageData(0, 0, width, height);
+                // 簡易的な処理：全体を複製してずらして合成描画するのが重いので、
+                // 这里では矩形コピーで代用
+                ctx.globalCompositeOperation = 'screen';
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                // 本来はピクセル操作だが、Canvas APIで簡易エフェクト
+                // 赤チャンネルだけ右にずらす的な表現の代わりに、赤っぽい矩形をランダム合成
+            }
+
+            ctx.globalCompositeOperation = 'difference';
+            for (let i = 0; i < glitchLines; i++) {
+                const y = Math.random() * height;
+                const h = Math.random() * 5 + 1;
+                const offset = (Math.random() - 0.5) * glitchIntensity;
+
+                // 画像の一部をずらす
+                // ctx.drawImage(canvas, 0, y, width, h, offset, y, width, h); // 再帰描画になるので注意
+                // 代わりに色反転バーを描く
+                ctx.fillStyle = i % 2 === 0 ? '#fff' : '#000';
+                ctx.fillRect(0, y, width, h);
+            }
+            ctx.globalCompositeOperation = 'source-over';
+
+            // ノイズドット
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            const noiseCount = texture * 2000;
+            for (let i = 0; i < noiseCount; i++) {
+                const x = Math.random() * width;
+                const y = Math.random() * height;
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+
+        // シェア機能
+        function shareToInstagram() {
+            const imageUrl = document.getElementById('material-image').src;
+            // Instagramは直接シェアできないので、画像をダウンロードして手動でシェア
+            downloadImage(imageUrl);
+            alert('画像をダウンロードしました。Instagramで手動でシェアしてください。');
+        }
+
+        function shareToTwitter() {
+            const text = encodeURIComponent('第一回 繊維産業研究報告会 -車と繊維-');
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+        }
+
+        function shareToLINE() {
+            const text = encodeURIComponent('第一回 繊維産業研究報告会 -車と繊維-');
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://social-plugins.line.me/lineit/share?url=${url}&text=${text}`, '_blank');
+        }
+
+        function downloadImage(imageUrl) {
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = 'material-id.png';
+            link.click();
+        }
+
+        function goToReservation() {
+            // 予約ページへ遷移（PeatixまたはGoogleフォーム）
+            // TODO: 実際のPeatixまたはGoogleフォームのURLに変更してください
+            window.open('https://peatix.com/event/4782352/view', '_blank');
         }
 
         init();
     </script>
 </body>
+
 </html>
