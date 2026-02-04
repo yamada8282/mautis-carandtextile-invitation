@@ -1161,11 +1161,40 @@
                 ctx.restore();
 
                 // カラーフィルター適用
-                ctx.save();
-                if (carColorHue !== 0 || carColorSaturate !== 1.0) {
-                    ctx.filter = `hue-rotate(${carColorHue}deg) saturate(${carColorSaturate})`;
-                }
+                // 車の描画
                 ctx.drawImage(currentCarImg, carX, carY, carDisplayWidth, carDisplayHeight);
+
+                // カラーフィルター（互換性のためglobalCompositeOperationを使用）
+                if (lastCollectedColor !== 'black' && (carColorHue !== 0 || carColorSaturate !== 1.0)) {
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'source-atop'; // 描画済みの車の上にだけ重ねる
+
+                    // 色ごとのオーバーレイカラー定義
+                    let overlayColor = 'rgba(0,0,0,0)';
+                    if (lastCollectedColor === 'blue') overlayColor = 'rgba(0, 100, 255, 0.4)';
+                    else if (lastCollectedColor === 'red') overlayColor = 'rgba(255, 0, 50, 0.4)';
+                    else if (lastCollectedColor === 'green') overlayColor = 'rgba(0, 200, 50, 0.4)';
+                    else if (lastCollectedColor === 'orange') overlayColor = 'rgba(255, 120, 0, 0.4)';
+                    else if (lastCollectedColor === 'purple') overlayColor = 'rgba(150, 0, 200, 0.4)';
+
+                    ctx.fillStyle = overlayColor;
+                    ctx.fillRect(carX, carY, carDisplayWidth, carDisplayHeight);
+
+                    // さらに彩度強調のためにsoft-lightなどで重ねる
+                    ctx.globalCompositeOperation = 'overlay';
+                    ctx.fillStyle = overlayColor;
+                    ctx.fillRect(carX, carY, carDisplayWidth, carDisplayHeight);
+
+                    ctx.restore();
+                } else if (lastCollectedColor === 'black') {
+                    // 黒（グレースケール）はsaturationフィルタが効きにくいので、黒を重ねて彩度を落とす
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'saturation';
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(carX, carY, carDisplayWidth, carDisplayHeight);
+                    ctx.restore();
+                }
+
                 ctx.restore();
             }
 
