@@ -393,6 +393,19 @@
             <div>・衝突数 → ノイズ・グリッチ (Texture)</div>
             <div>・アイテム → カラーパレット (Color)</div>
         </div>
+
+        <!-- コラボレーション機能 -->
+        <div id="collab-section" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; display: none;">
+            <div id="collab-message" style="font-size: 12px; color: #333; margin-bottom: 10px;"></div>
+            <button id="invite-btn" class="share-btn" style="display: none;"
+                onclick="generateInviteLink()">招待リンクを作成</button>
+            <div id="invite-link-container" style="display: none; margin-top: 10px;">
+                <input type="text" id="invite-link-input" readonly
+                    style="width: 100%; padding: 8px; font-size: 11px; border: 1px solid #999; margin-bottom: 8px;">
+                <button class="share-btn" onclick="copyInviteLink()">リンクをコピー</button>
+            </div>
+        </div>
+
         <!-- テキスタイル生成用 高解像度Canvas (不可視) -->
         <canvas id="textileCanvas" width="2048" height="2048" style="display:none;"></canvas>
     </div>
@@ -404,6 +417,25 @@
             if (caption) caption.innerHTML = `<span style="color:red; font-size:12px;">ERROR: ${msg}<br>Line: ${line}</span>`;
             return false;
         };
+
+        // --- コラボレーション: 緯糸モード検出 ---
+        let isWeftMode = false;
+        let warpDataFromUrl = null;
+
+        (function detectWeftMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const warpParam = urlParams.get('warp');
+            if (warpParam) {
+                try {
+                    const decoded = atob(warpParam);
+                    warpDataFromUrl = JSON.parse(decoded);
+                    isWeftMode = true;
+                    console.log('緯糸モードで起動:', warpDataFromUrl);
+                } catch (e) {
+                    console.error('経糸データのデコードに失敗:', e);
+                }
+            }
+        })();
 
         // --- 設定エリア ---
         const renderScale = 0.5; // 画質調整（軽くするために半分で計算して拡大）
@@ -1103,7 +1135,13 @@
             };
 
             // テキスタイル生成
-            const dataUrl = generateTextile(genParams);
+            // 緯糸モードの場合は経糸データをURLから取得し、自分のデータを緯糸として合成
+            let dataUrl;
+            if (isWeftMode && warpDataFromUrl) {
+                dataUrl = generateTextile(warpDataFromUrl, genParams);  // 経糸=URL, 緯糸=自分
+            } else {
+                dataUrl = generateTextile(genParams, null);  // 経糸のみ
+            }
 
             const imgEl = document.getElementById('material-image');
             imgEl.src = dataUrl;
@@ -1124,6 +1162,25 @@
             const styleName = genParams.style.toUpperCase();
             const dens = Math.floor(genParams.density * 100);
             document.getElementById('spec-info').innerHTML = `STYLE: ${styleName} / DENSITY: ${dens}% <br>PALETTE: ${genParams.paletteId.toUpperCase()}`;
+
+            // コラボレーション機能
+            const collabSection = document.getElementById('collab-section');
+            const collabMessage = document.getElementById('collab-message');
+            const inviteBtn = document.getElementById('invite-btn');
+
+            if (isWeftMode && warpDataFromUrl) {
+                // 緯糸モード: 合成完了メッセージ
+                collabSection.style.display = 'block';
+                collabMessage.innerHTML = '🎉 <strong>布が完成しました！</strong><br>あなたの緯糸と誰かの経糸が交差して、一枚の布になりました。';
+            } else {
+                // 経糸モード: 招待リンク作成を促す
+                collabSection.style.display = 'block';
+                collabMessage.innerHTML = '🧵 <strong>これはまだ「経糸」だけです</strong><br>誰かに「緯糸」を織ってもらい、布を完成させましょう。';
+                inviteBtn.style.display = 'inline-block';
+
+                // genParamsをグローバルに保存（招待リンク生成用）
+                window.currentWarpData = genParams;
+            }
         }
 
         // --- テキスタイル生成エンジン ---
@@ -1150,7 +1207,7 @@
             }
         };
 
-        function generateTextile(params) {
+        function generateTextile(warpParams, weftParams = null) {
             const tCanvas = document.getElementById('textileCanvas');
             const tCtx = tCanvas.getContext('2d');
             const W = tCanvas.width;
@@ -1159,45 +1216,72 @@
             textileEngine.warpSeed = Date.now();
             textileEngine.weftSeed = Date.now() + 99999;
 
-            const pal = textileEngine.palettes[params.paletteId] || textileEngine.palettes.bw_std;
+            // 経糸のパレット
+            const warpPal = textileEngine.palettes[warpParams.paletteId] || textileEngine.palettes.bw_std;
+            // 緯糸のパレット（指定があれば）
+            const weftPal = weftParams ? (textileEngine.palettes[weftParams.paletteId] || textileEngine.palettes.bw_std) : warpPal;
 
-            tCtx.fillStyle = pal.bg;
+            tCtx.fillStyle = warpPal.bg;
             tCtx.fillRect(0, 0, W, H);
 
-            const warpSpacing = 20 + (1 - params.density) * 70;
-            const weftSpacing = 20 + (1 - params.density) * 70;
-            const warpAmp = params.warpAmp * 60;   // 160→から控えめに
-            const weftAmp = params.warpAmp * 60;
-            const warpFreq = 0.002 + params.warpFreq * 0.02;  // 0.04→から控えめに
-            const weftFreq = 0.002 + params.warpFreq * 0.02;
+            const warpSpacing = 20 + (1 - warpParams.density) * 70;
+            const warpAmp = warpParams.warpAmp * 60;
+            const warpFreq = 0.002 + warpParams.warpFreq * 0.02;
             const lineW = 1.0 + 0.3 * 25;
-            const noise = params.noise;
+            const warpNoise = warpParams.noise;
+            const warpStyle = warpParams.style;
             const alpha = 1.0;
-            const style = params.style;
 
             tCtx.lineCap = 'round';
             tCtx.lineJoin = 'round';
 
-            // WARP
-            tCtx.strokeStyle = textileEngine.hexToRgba(pal.warp, alpha);
+            // WARP（経糸）描画
+            tCtx.strokeStyle = textileEngine.hexToRgba(warpPal.warp, alpha);
             tCtx.lineWidth = lineW;
             for (let x = warpSpacing / 2; x < W; x += warpSpacing) {
-                if (textileEngine.warpRnd() < noise * 0.15) continue;
+                if (textileEngine.warpRnd() < warpNoise * 0.15) continue;
                 tCtx.beginPath();
                 const phase = textileEngine.warpRnd() * Math.PI * 2;
                 const localAmp = warpAmp * (0.6 + textileEngine.warpRnd() * 0.4);
                 const localFreq = warpFreq * (0.7 + textileEngine.warpRnd() * 0.6);
                 for (let y = 0; y <= H; y += 4) {
                     let wave = Math.sin(y * localFreq + phase) * localAmp;
-                    if (noise > 0) wave += (textileEngine.warpRnd() - 0.5) * noise * 30;  // 80→から控えめに
-                    if (style === 'organic') wave += Math.sin(y * 0.005 + x * 0.002) * 40;
-                    else if (style === 'glitch') if (textileEngine.warpRnd() < 0.02) wave += (textileEngine.warpRnd() - 0.5) * 200;
+                    if (warpNoise > 0) wave += (textileEngine.warpRnd() - 0.5) * warpNoise * 30;
+                    if (warpStyle === 'organic') wave += Math.sin(y * 0.005 + x * 0.002) * 40;
+                    else if (warpStyle === 'glitch') if (textileEngine.warpRnd() < 0.02) wave += (textileEngine.warpRnd() - 0.5) * 200;
                     const px = x + wave;
                     y === 0 ? tCtx.moveTo(px, y) : tCtx.lineTo(px, y);
                 }
                 tCtx.stroke();
             }
-            // WEFT描画は削除（縦線のみ一色で構成）
+
+            // WEFT（緯糸）描画 - weftParamsが指定された場合のみ
+            if (weftParams) {
+                const weftSpacing = 20 + (1 - weftParams.density) * 70;
+                const weftAmp = weftParams.warpAmp * 60;
+                const weftFreq = 0.002 + weftParams.warpFreq * 0.02;
+                const weftNoise = weftParams.noise;
+                const weftStyle = weftParams.style;
+
+                tCtx.strokeStyle = textileEngine.hexToRgba(weftPal.weft, alpha);
+                tCtx.lineWidth = lineW * 0.85;
+                for (let y = weftSpacing / 2; y < H; y += weftSpacing) {
+                    if (textileEngine.weftRnd() < weftNoise * 0.2) continue;
+                    tCtx.beginPath();
+                    const phase = textileEngine.weftRnd() * Math.PI * 2;
+                    const localAmp = weftAmp * (0.6 + textileEngine.weftRnd() * 0.4);
+                    const localFreq = weftFreq * (0.7 + textileEngine.weftRnd() * 0.6);
+                    for (let x = 0; x <= W; x += 4) {
+                        let wave = Math.sin(x * localFreq + phase) * localAmp;
+                        if (weftNoise > 0) wave += (textileEngine.weftRnd() - 0.5) * weftNoise * 30;
+                        if (weftStyle === 'organic') wave += Math.cos(x * 0.005 + y * 0.002) * 30;
+                        else if (weftStyle === 'glitch') if (textileEngine.weftRnd() < 0.02) wave += (textileEngine.weftRnd() - 0.5) * 160;
+                        const py = y + wave;
+                        x === 0 ? tCtx.moveTo(x, py) : tCtx.lineTo(x, py);
+                    }
+                    tCtx.stroke();
+                }
+            }
 
             const g = tCtx.createRadialGradient(W / 2, H / 2, H * 0.4, W / 2, H / 2, H * 0.9);
             g.addColorStop(0, 'rgba(255,255,255,0)');
@@ -1228,6 +1312,41 @@
         }
         function goToReservation() {
             window.open('https://example.com/reserve', '_blank');
+        }
+
+        // --- 招待リンク機能 ---
+        function generateInviteLink() {
+            if (!window.currentWarpData) {
+                alert('経糸データがありません');
+                return;
+            }
+
+            // データをJSON化してBase64エンコード
+            const jsonStr = JSON.stringify(window.currentWarpData);
+            const base64 = btoa(jsonStr);
+
+            // 現在のURLのベースを取得
+            const baseUrl = window.location.origin + window.location.pathname;
+            const inviteUrl = `${baseUrl}?warp=${base64}`;
+
+            // UIに表示
+            const container = document.getElementById('invite-link-container');
+            const input = document.getElementById('invite-link-input');
+            input.value = inviteUrl;
+            container.style.display = 'block';
+            document.getElementById('invite-btn').style.display = 'none';
+        }
+
+        function copyInviteLink() {
+            const input = document.getElementById('invite-link-input');
+            input.select();
+            input.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(input.value).then(() => {
+                alert('リンクをコピーしました！\\n相手に送って緯糸を織ってもらいましょう。');
+            }).catch(() => {
+                alert('コピーに失敗しました。手動でコピーしてください。');
+            });
         }
 
         init();
