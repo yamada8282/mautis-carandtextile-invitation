@@ -348,6 +348,53 @@
             text-align: left;
             line-height: 1.6;
         }
+
+        /* オーディオコントロール */
+        #start-audio-indicator {
+            font-size: 10px;
+            color: #000;
+            /* Fixed: White on White was invisible */
+            margin-top: 15px;
+            opacity: 0.6;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: opacity 0.3s;
+            font-family: 'DIN 2014', sans-serif;
+        }
+
+        #start-audio-indicator:hover {
+            opacity: 1;
+        }
+
+        #audio-controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 2000;
+            cursor: pointer;
+            display: none;
+        }
+
+        .audio-btn {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 6px 10px;
+            font-family: 'DIN 2014', sans-serif;
+            font-size: 10px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .audio-btn:hover {
+            background: #fff;
+            color: #000;
+        }
     </style>
 </head>
 
@@ -392,11 +439,15 @@
 
         <button class="init-button" id="init-button">START</button>
         <div id="start-hint" style="font-size: 10px; color: #666; margin-top: 10px;">タップしてゲームを始める</div>
+        <div id="start-audio-indicator" onclick="toggleAudio()">( SOUND ON )</div>
     </div>
 
     <div id="scanlines"></div>
     <div id="ui-layer">
         <p id="caption">SYSTEM BOOTING...</p>
+        <div id="audio-controls">
+            <div id="game-audio-btn" class="audio-btn" onclick="toggleAudio()">SOUND ON</div>
+        </div>
     </div>
     <div id="speedometer">
         <div class="label">SPEED</div>
@@ -569,6 +620,31 @@
         checkDeviceAccess();
         window.addEventListener('resize', checkDeviceAccess);
         window.addEventListener('orientationchange', checkDeviceAccess);
+
+        // --- Audio Control ---
+        let isMuted = false;
+        function toggleAudio() {
+            isMuted = !isMuted;
+            const bgm = window.bgm;
+            const motor = window.motor;
+            const narration = window.narration;
+
+            if (bgm) bgm.muted = isMuted;
+            if (motor) motor.muted = isMuted;
+            if (narration) narration.muted = isMuted;
+
+            const text = isMuted ? '( SOUND OFF )' : '( SOUND ON )';
+            const gameText = isMuted ? 'SOUND OFF' : 'SOUND ON'; // HUDはシンプルに
+
+            const indicator = document.getElementById('start-audio-indicator');
+            if (indicator) indicator.innerHTML = text;
+
+            const gameBtn = document.getElementById('game-audio-btn');
+            if (gameBtn) {
+                gameBtn.innerHTML = gameText;
+                gameBtn.style.opacity = isMuted ? '0.5' : '1.0';
+            }
+        }
 
         // --- コラボレーション: 緯糸モード検出 ---
         let isWeftMode = false;
@@ -865,6 +941,7 @@
         }
 
         function startGame() {
+            document.getElementById('audio-controls').style.display = 'block'; // オーディオボタン表示
             gameState = 'playing';
             gameStartTime = Date.now();
             gameEnded = false;
