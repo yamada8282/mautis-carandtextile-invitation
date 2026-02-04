@@ -358,8 +358,20 @@
         <div class="glitch-overlay" id="glitch-overlay"></div>
         <div class="event-title">第一回 繊維産業研究報告会<br>-車と繊維-</div>
         <div class="event-date">2026.02.28 SAT</div>
+
+        <!-- 緯糸モード説明 -->
+        <div id="weft-mode-info"
+            style="display: none; background: rgba(0,0,0,0.05); padding: 15px; margin: 15px 0; border-left: 3px solid #333; text-align: left; max-width: 280px;">
+            <div style="font-size: 11px; font-weight: bold; margin-bottom: 8px;">あなたは「緯糸（よこいと）」です</div>
+            <div style="font-size: 10px; color: #555; line-height: 1.5;">
+                誰かが織った「経糸（たていと）」が待っています。<br>
+                あなたの走りが「緯糸」となり、<br>
+                2人の糸が交差して、1枚の布が完成します。
+            </div>
+        </div>
+
         <button class="init-button" id="init-button">START</button>
-        <div style="font-size: 10px; color: #666; margin-top: 10px;">タップしてゲームを始める</div>
+        <div id="start-hint" style="font-size: 10px; color: #666; margin-top: 10px;">タップしてゲームを始める</div>
     </div>
 
     <div id="scanlines"></div>
@@ -395,14 +407,32 @@
         </div>
 
         <!-- コラボレーション機能 -->
-        <div id="collab-section" style="margin-top: 20px; padding: 15px; border: 1px solid #ccc; display: none;">
-            <div id="collab-message" style="font-size: 12px; color: #333; margin-bottom: 10px;"></div>
-            <button id="invite-btn" class="share-btn" style="display: none;"
-                onclick="generateInviteLink()">招待リンクを作成</button>
-            <div id="invite-link-container" style="display: none; margin-top: 10px;">
-                <input type="text" id="invite-link-input" readonly
-                    style="width: 100%; padding: 8px; font-size: 11px; border: 1px solid #999; margin-bottom: 8px;">
-                <button class="share-btn" onclick="copyInviteLink()">リンクをコピー</button>
+        <div id="collab-section"
+            style="margin-top: 25px; padding: 20px; background: #f8f8f8; border-radius: 4px; display: none;">
+            <div id="collab-header" style="font-size: 13px; font-weight: bold; margin-bottom: 12px; color: #222;"></div>
+            <div id="collab-message" style="font-size: 11px; color: #555; line-height: 1.6; margin-bottom: 15px;"></div>
+
+            <!-- 経糸モード用 -->
+            <div id="warp-mode-actions" style="display: none;">
+                <button id="invite-btn" class="share-btn" onclick="generateInviteLink()"
+                    style="background: #333; color: #fff; padding: 12px 24px; font-size: 12px;">
+                    招待リンクを作成する
+                </button>
+                <div id="invite-link-container" style="display: none; margin-top: 15px;">
+                    <div style="font-size: 10px; color: #666; margin-bottom: 5px;">下のリンクを相手に送ってください：</div>
+                    <input type="text" id="invite-link-input" readonly
+                        style="width: 100%; padding: 10px; font-size: 10px; border: 1px solid #ccc; border-radius: 3px; margin-bottom: 10px; background: #fff;">
+                    <button class="share-btn" onclick="copyInviteLink()" style="width: 100%;">リンクをコピー</button>
+                </div>
+            </div>
+
+            <!-- 緯糸モード用 -->
+            <div id="weft-mode-result" style="display: none;">
+                <div style="font-size: 11px; color: #333; padding: 10px; background: #e8f5e9; border-radius: 3px;">
+                    この布には2人の走りが織り込まれています。<br>
+                    <strong>経糸</strong>: 招待者の走り<br>
+                    <strong>緯糸</strong>: あなたの走り
+                </div>
             </div>
         </div>
 
@@ -431,6 +461,12 @@
                     warpDataFromUrl = JSON.parse(decoded);
                     isWeftMode = true;
                     console.log('緯糸モードで起動:', warpDataFromUrl);
+
+                    // スタート画面に緯糸モード表示
+                    const weftInfo = document.getElementById('weft-mode-info');
+                    const startHint = document.getElementById('start-hint');
+                    if (weftInfo) weftInfo.style.display = 'block';
+                    if (startHint) startHint.innerHTML = 'タップして緯糸を織り始める';
                 } catch (e) {
                     console.error('経糸データのデコードに失敗:', e);
                 }
@@ -1165,18 +1201,21 @@
 
             // コラボレーション機能
             const collabSection = document.getElementById('collab-section');
+            const collabHeader = document.getElementById('collab-header');
             const collabMessage = document.getElementById('collab-message');
-            const inviteBtn = document.getElementById('invite-btn');
 
             if (isWeftMode && warpDataFromUrl) {
                 // 緯糸モード: 合成完了メッセージ
                 collabSection.style.display = 'block';
-                collabMessage.innerHTML = '🎉 <strong>布が完成しました！</strong><br>あなたの緯糸と誰かの経糸が交差して、一枚の布になりました。';
+                collabHeader.innerHTML = '布が完成しました！';
+                collabMessage.innerHTML = '2人の走りが交差し、1枚の布になりました。<br>経糸（招待者）と緯糸（あなた）が織り成す、世界に1つだけのテキスタイルです。';
+                document.getElementById('weft-mode-result').style.display = 'block';
             } else {
                 // 経糸モード: 招待リンク作成を促す
                 collabSection.style.display = 'block';
-                collabMessage.innerHTML = '🧵 <strong>これはまだ「経糸」だけです</strong><br>誰かに「緯糸」を織ってもらい、布を完成させましょう。';
-                inviteBtn.style.display = 'inline-block';
+                collabHeader.innerHTML = 'これはまだ「経糸」だけです';
+                collabMessage.innerHTML = '1人では糸、2人で布になります。<br>誰かに「緯糸」を織ってもらい、布を完成させましょう。';
+                document.getElementById('warp-mode-actions').style.display = 'block';
 
                 // genParamsをグローバルに保存（招待リンク生成用）
                 window.currentWarpData = genParams;
