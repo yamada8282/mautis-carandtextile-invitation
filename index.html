@@ -1531,8 +1531,48 @@
             const risk = playData.collisionCount;
             const greed = Object.values(playData.itemCounts).reduce((a, b) => a + b, 0);
 
-            const result = calculateDiagnosis(playData, lastCollectedColor);
-            const { en: prefix, jp: prefixJp } = getDiagnosisPrefix(lastCollectedColor);
+            let result = { id: 15, nameEn: "UNKNOWN MATERIAL", nameJp: "未解析のマテリアル", desc: "解析不能。既存の繊維データに該当しない、特異点（シンギュラリティ）。" };
+
+            // 1. 特殊枠 (優先度高)
+            if (steer < 7 && risk < 1.1 && greed < 4) {
+                result = { id: 1, nameEn: "GHOST ORGANZA", nameJp: "幽霊のオーガンジー", desc: "存在感が希薄で、透明に近い。世界に干渉することを拒んだ、儚い繊維。" };
+            } else if (risk < 1.1 && greed >= 9) {
+                result = { id: 2, nameEn: "ARMORED KEVLAR", nameJp: "武装するケブラー", desc: "圧倒的な防御力と貪欲さ。傷一つ負わずに全てを手に入れる、最強の合成繊維。" };
+            } else if (risk >= 8) {
+                result = { id: 3, nameEn: "BURNT VINYL", nameJp: "焦げたビニール", desc: "摩擦熱で溶け出し、異臭を放つ。痛みを燃料にして走る、危険な物質。" };
+            } else if (steer >= 40) {
+                result = { id: 4, nameEn: "NEURAL FIBER", nameJp: "ニューラル・ファイバー", desc: "複雑に絡み合う思考の迷路。繊細すぎて、誰にも解くことができない脳内繊維。" };
+            }
+            // 2. 通常枠
+            else {
+                if (risk < 1.1) { // Risk: Low
+                    if (steer < 7) result = { id: 5, nameEn: "PURE SILK", nameJp: "純白のシルク", desc: "迷いのない一直線の美しさ。高貴だが、汚れを知らないため染まりやすい。" };
+                    else if (greed >= 9) result = { id: 6, nameEn: "HOLOGRAPHIC FILM", nameJp: "偏光フィルム", desc: "揺れ動くたびに色を変える。多面的で掴みどころがない、現代的な輝き。" };
+                    else result = { id: 7, nameEn: "GLASS FIBER", nameJp: "グラスファイバー", desc: "繊細で折れやすいが、鋭い透過性を持つ。触れる者を傷つけるガラスの糸。" };
+                } else if (risk < 5) { // Risk: Mid (1.1 - 4.9)
+                    if (steer < 7) {
+                        if (greed >= 9) result = { id: 9, nameEn: "CLASSIC TWEED", nameJp: "伝統的なツイード", desc: "多くの色（欲望）を整然と織り込んだ、知的でトラディショナルな厚み。" };
+                        else result = { id: 8, nameEn: "HEAVY CANVAS", nameJp: "頑丈な帆布", desc: "質実剛健。面白みには欠けるが、最も信頼でき、何にでもなれる素材。" };
+                    } else {
+                        if (greed >= 9) result = { id: 11, nameEn: "ACTIVE MESH", nameJp: "躍動するメッシュ", desc: "通気性と伸縮性が抜群。じっとしていられない、エネルギーの塊。" };
+                        else result = { id: 10, nameEn: "MEDICAL GAUZE", nameJp: "癒やしのガーゼ", desc: "柔らかく、優しく包み込む。迷い傷ついた経験が、他者への優しさになる。" };
+                    }
+                } else { // Risk: High (5+)
+                    if (steer < 7) result = { id: 12, nameEn: "VINTAGE DENIM", nameJp: "ヴィンテージデニム", desc: "傷つくほどに味が出る。不器用な生き方がそのままテクスチャになった、不朽の定番。" };
+                    else if (greed >= 9) result = { id: 13, nameEn: "GLITCH NYLON", nameJp: "グリッチナイロン", desc: "ノイズと蛍光色が混ざり合う。カオスを愛する、デジタル世代のパンク素材。" };
+                    else result = { id: 14, nameEn: "BORO PATCHWORK", nameJp: "継ぎ接ぎのボロ", desc: "拾い集めた断片を縫い合わせた記憶の布。貧しいのではなく、歴史が深い。" };
+                }
+            }
+
+            // 接頭辞 (Prefix)
+            let prefix = "";
+            let prefixJp = "";
+            if (lastCollectedColor === 'red') { prefix = "BLEEDING "; prefixJp = "血を流す"; }
+            else if (lastCollectedColor === 'blue') { prefix = "COLD "; prefixJp = "冷徹な"; }
+            else if (lastCollectedColor === 'green') { prefix = "BIO "; prefixJp = "生物的な"; }
+            else if (lastCollectedColor === 'monochrome') { prefix = "NOIR "; prefixJp = "漆黒の"; }
+            else if (lastCollectedColor === 'orange') { prefix = "ACID "; prefixJp = "幻覚の"; }
+            else if (lastCollectedColor === 'purple') { prefix = "ROYAL "; prefixJp = "高貴な"; }
 
             // 表示更新
             const styleName = genParams.style.toUpperCase();
