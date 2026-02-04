@@ -596,14 +596,36 @@
         })();
 
         // --- 設定エリア ---
-        const renderScale = 0.5; // 画質調整（軽くするために半分で計算して拡大）
-        const roadWidth = 2000;
-        const segmentLength = 200;
-        const rumbleLength = 3;
-        const fieldOfView = 100;
-        // カメラの高さ（視点）
-        let cameraHeight = 300;
-        const drawDistance = 300;
+        // --- 設定エリア (Game Configuration) ---
+        const GameConfig = {
+            renderScale: 0.5,      // 画質調整（軽くするために半分で計算して拡大）
+            roadWidth: 2000,
+            segmentLength: 200,
+            rumbleLength: 3,
+            fieldOfView: 100,
+            cameraHeight: 300,
+            drawDistance: 300,
+            // 物理挙動
+            physics: {
+                maxSpeed: 12000,   // 最高速度
+                accel: 15,         // 加速度
+                breaking: -200,    // 減速度
+                decel: -50,        // 自然減速
+                offRoadDecel: -200,// コースアウト減速
+                offRoadLimit: 2000,// コースアウト判定幅
+                speedMultiplier: 0.006
+            }
+        };
+
+        // 後方互換性（既存コードを壊さないためのエイリアス）
+        // ※徐々に GameConfig.XXX に置き換えていく
+        const renderScale = GameConfig.renderScale;
+        const roadWidth = GameConfig.roadWidth;
+        const segmentLength = GameConfig.segmentLength;
+        const rumbleLength = GameConfig.rumbleLength;
+        const fieldOfView = GameConfig.fieldOfView;
+        let cameraHeight = GameConfig.cameraHeight; // letのまま
+        const drawDistance = GameConfig.drawDistance;
 
         // --- エンジン変数 ---
         const canvas = document.getElementById('gameCanvas');
@@ -616,13 +638,15 @@
         let playerX = 0;
         let playerZ = 0;
         let speed = 0;
-        const speedMultiplier = 0.006;
-        const maxSpeed = 12000; // 最高速度
-        const accel = 15;      // 加速度
-        const breaking = -200;  // 減速度
-        const decel = -50;      // 自然減速
-        const offRoadDecel = -200;
-        const offRoadLimit = 2000; // コースアウト判定幅
+
+        // エイリアス（物理）
+        const speedMultiplier = GameConfig.physics.speedMultiplier;
+        const maxSpeed = GameConfig.physics.maxSpeed;
+        const accel = GameConfig.physics.accel;
+        const breaking = GameConfig.physics.breaking;
+        const decel = GameConfig.physics.decel;
+        const offRoadDecel = GameConfig.physics.offRoadDecel;
+        const offRoadLimit = GameConfig.physics.offRoadLimit;
 
         let keyLeft = false;
         let keyRight = false;
@@ -648,6 +672,7 @@
             speedHistory: [],
             trajectory: [],
             collisionCount: 0,
+            steeringFlipCount: 0, // 追加: 初期化
             totalDistance: 0,
             itemCounts: { blue: 0, red: 0, green: 0, orange: 0 }
         };
@@ -703,7 +728,7 @@
         function initItems() {
             items.length = 0;
             // 6色システム（白背景で映える色）
-            const colors = ['black', 'red', 'blue', 'green', 'orange', 'purple'];
+            const colors = ['monochrome', 'red', 'blue', 'green', 'orange', 'purple'];
             for (let i = 0; i < 20; i++) {
                 items.push({
                     segmentIndex: Math.floor(Math.random() * totalSegments),
@@ -852,6 +877,7 @@
                 speedHistory: [],
                 trajectory: [],
                 collisionCount: 0,
+                steeringFlipCount: 0, // 追加: リセット
                 totalDistance: 0,
                 itemCounts: { blue: 0, red: 0, green: 0, orange: 0 }
             };
@@ -869,7 +895,8 @@
             // 車のカラーリセット
             carColorHue = 0;
             carColorSaturate = 1.0;
-            lastCollectedColor = 'black';  // リセット
+            lastCollectedColor = 'monochrome';  // リセット（白＝黒糸）
+            window.glitchIntensity = 0; // グリッチ初期化
 
             // 操作ヒント表示（3秒後に消える）
             const hint = document.getElementById('control-hint');
@@ -1009,11 +1036,14 @@
                 if (inDepthRange && Math.abs(playerScreenX - obstacleScreenX) < hitRadius + 40) {
                     playData.collisionCount += 2;
                     obstacle.hit = true;
-                    speed = Math.max(0, speed - 4000);
+                    speed = Math.max(0, speed - 8000);
 
-                    // 衰突演出（赤いフラッシュ）
+                    // グリッチエフェクト発動
+                    window.glitchIntensity = 1.0;
+
+                    // 衰突演出（白に戻す）
                     const flash = document.createElement('div');
-                    flash.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(255,255,255,0.8);pointer-events:none;z-index:999;transition:opacity 0.15s';
+                    flash.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(255,255,255,0.8);pointer-events:none;z-index:999;transition:opacity 0.15s;mix-blend-mode:normal;';
                     document.body.appendChild(flash);
                     requestAnimationFrame(() => {
                         flash.style.opacity = '0';
@@ -1039,14 +1069,14 @@
 
                 // 6色パレット（白背景で映える色）
                 const colorMap = {
-                    black: { code: '#1a1a1a', glow: 'rgba(26, 26, 26, 0.6)' },
+                    monochrome: { code: '#ffffff', glow: 'rgba(255, 255, 255, 0.8)' },
                     red: { code: '#e60012', glow: 'rgba(230, 0, 18, 0.6)' },
                     blue: { code: '#0066cc', glow: 'rgba(0, 102, 204, 0.6)' },
                     green: { code: '#009944', glow: 'rgba(0, 153, 68, 0.6)' },
                     orange: { code: '#ff6600', glow: 'rgba(255, 102, 0, 0.6)' },
                     purple: { code: '#6b0099', glow: 'rgba(107, 0, 153, 0.6)' }
                 };
-                const colorInfo = colorMap[item.color] || colorMap.black;
+                const colorInfo = colorMap[item.color] || colorMap.monochrome;
                 const colorCode = colorInfo.code;
                 const glowCode = colorInfo.glow;
 
@@ -1089,14 +1119,14 @@
 
                     // 車のカラーフィルター変更（6色対応）
                     const carFilterMap = {
-                        black: { hue: 0, saturate: 0.3 },    // グレースケール風
+                        monochrome: { hue: 0, saturate: 0 },      // 白（彩度0で白化処理へ）
                         red: { hue: 330, saturate: 1.5 },
                         blue: { hue: 180, saturate: 1.5 },
                         green: { hue: 90, saturate: 1.5 },
                         orange: { hue: 30, saturate: 1.5 },
                         purple: { hue: 270, saturate: 1.5 }
                     };
-                    const filter = carFilterMap[item.color] || carFilterMap.black;
+                    const filter = carFilterMap[item.color] || carFilterMap.monochrome;
                     carColorHue = filter.hue;
                     carColorSaturate = filter.saturate;
 
@@ -1160,41 +1190,76 @@
                 ctx.fill();
                 ctx.restore();
 
-                // カラーフィルター適用
-                // 車の描画
-                ctx.drawImage(currentCarImg, carX, carY, carDisplayWidth, carDisplayHeight);
+                // 車の描画（一度白くして、その上から着色する）
 
-                // カラーフィルター（互換性のためglobalCompositeOperationを使用）
-                if (lastCollectedColor !== 'black' && (carColorHue !== 0 || carColorSaturate !== 1.0)) {
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'source-atop'; // 描画済みの車の上にだけ重ねる
-
-                    // 色ごとのオーバーレイカラー定義
-                    let overlayColor = 'rgba(0,0,0,0)';
-                    if (lastCollectedColor === 'blue') overlayColor = 'rgba(0, 100, 255, 0.4)';
-                    else if (lastCollectedColor === 'red') overlayColor = 'rgba(255, 0, 50, 0.4)';
-                    else if (lastCollectedColor === 'green') overlayColor = 'rgba(0, 200, 50, 0.4)';
-                    else if (lastCollectedColor === 'orange') overlayColor = 'rgba(255, 120, 0, 0.4)';
-                    else if (lastCollectedColor === 'purple') overlayColor = 'rgba(150, 0, 200, 0.4)';
-
-                    ctx.fillStyle = overlayColor;
-                    ctx.fillRect(carX, carY, carDisplayWidth, carDisplayHeight);
-
-                    // さらに彩度強調のためにsoft-lightなどで重ねる
-                    ctx.globalCompositeOperation = 'overlay';
-                    ctx.fillStyle = overlayColor;
-                    ctx.fillRect(carX, carY, carDisplayWidth, carDisplayHeight);
-
-                    ctx.restore();
-                } else if (lastCollectedColor === 'black') {
-                    // 黒（グレースケール）はsaturationフィルタが効きにくいので、黒を重ねて彩度を落とす
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'saturation';
-                    ctx.fillStyle = '#000';
-                    ctx.fillRect(carX, carY, carDisplayWidth, carDisplayHeight);
-                    ctx.restore();
+                // オフスクリーンキャンバスの準備
+                if (!window.carTintCanvas) {
+                    window.carTintCanvas = document.createElement('canvas');
+                    window.carTintCtx = window.carTintCanvas.getContext('2d');
                 }
 
+                // サイズ調整＆クリア
+                if (window.carTintCanvas.width !== Math.ceil(carDisplayWidth) || window.carTintCanvas.height !== Math.ceil(carDisplayHeight)) {
+                    window.carTintCanvas.width = Math.ceil(carDisplayWidth);
+                    window.carTintCanvas.height = Math.ceil(carDisplayHeight);
+                }
+                const tCtx = window.carTintCtx;
+                tCtx.clearRect(0, 0, window.carTintCanvas.width, window.carTintCanvas.height);
+
+                // 1. 車の画像をオフスクリーンに描画
+                tCtx.globalCompositeOperation = 'source-over';
+                tCtx.drawImage(currentCarImg, 0, 0, carDisplayWidth, carDisplayHeight);
+
+                // 2. 「白化」処理（赤を白にする）
+                // lightenなどで白を重ねて明るくし、saturationで彩度を抜く
+                tCtx.globalCompositeOperation = 'screen';
+                tCtx.fillStyle = '#ffffff';
+                tCtx.fillRect(0, 0, window.carTintCanvas.width, window.carTintCanvas.height);
+
+                tCtx.globalCompositeOperation = 'saturation';
+                tCtx.fillStyle = '#ffffff'; // 白（無彩色）
+                tCtx.fillRect(0, 0, window.carTintCanvas.width, window.carTintCanvas.height);
+
+                // 3. 元の車の形で切り抜く（マスク）
+                tCtx.globalCompositeOperation = 'destination-in';
+                tCtx.drawImage(currentCarImg, 0, 0, carDisplayWidth, carDisplayHeight);
+
+                // --- これで tintCanvas には「白い車」が入っている状態 ---
+
+                // 4. ここに着色を行う
+                let targetColor = lastCollectedColor;
+                if (!targetColor) targetColor = 'red'; // デフォルト赤
+
+                if (targetColor !== 'monochrome') {
+                    // 色定義
+                    let overlayColor = 'rgba(255, 0, 50, 1.0)'; // デフォルト赤（濃いめ）
+                    if (targetColor === 'blue') overlayColor = 'rgba(0, 100, 255, 1.0)';
+                    else if (targetColor === 'green') overlayColor = 'rgba(0, 200, 50, 1.0)';
+                    else if (targetColor === 'orange') overlayColor = 'rgba(255, 120, 0, 1.0)';
+                    else if (targetColor === 'purple') overlayColor = 'rgba(150, 0, 200, 1.0)';
+                    else if (targetColor === 'red') overlayColor = 'rgba(255, 0, 50, 1.0)';
+
+                    // 白い車に色を乗せる (multiply + source-atop)
+                    tCtx.globalCompositeOperation = 'multiply';
+                    tCtx.fillStyle = overlayColor;
+                    tCtx.fillRect(0, 0, window.carTintCanvas.width, window.carTintCanvas.height);
+
+                    // 発色を良くするためにoverlayも重ねる
+                    tCtx.globalCompositeOperation = 'source-atop';
+                    tCtx.fillStyle = overlayColor;
+
+                    // マスク再適用
+                    tCtx.globalCompositeOperation = 'destination-in';
+                    tCtx.drawImage(currentCarImg, 0, 0, carDisplayWidth, carDisplayHeight);
+
+                } else {
+                    // 白（monochrome）の場合：
+                    // すでに白化処理済みなので、何もしなければ「真っ白な車」になる。
+                    // そのままでOK。
+                }
+
+                // 5. 最後にメインキャンバスへ描画
+                ctx.drawImage(window.carTintCanvas, carX, carY, carDisplayWidth, carDisplayHeight);
                 ctx.restore();
             }
 
@@ -1269,10 +1334,49 @@
 
             if (gameState === 'playing') {
                 const elapsed = Date.now() - gameStartTime;
-                if (elapsed >= gameDuration) {
+                if (elapsed > gameDuration && !gameEnded) {
                     endGame(); // 念のためここでも呼ぶ
                     requestAnimationFrame(loop);
                     return;
+                }
+
+                // グリッチエフェクト（衝突時）
+                if (window.glitchIntensity > 0) {
+                    const intensity = window.glitchIntensity;
+
+                    // 1. 画面のずれ（RGB分離風）
+                    const shiftX = (Math.random() - 0.5) * 20 * intensity;
+                    const shiftY = (Math.random() - 0.5) * 10 * intensity;
+
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'screen';
+                    // 白く光らせる（赤から変更）
+                    ctx.fillStyle = `rgba(255, 255, 255, ${0.5 * intensity})`;
+                    ctx.fillRect(0, 0, width, height); // 全体を軽く白く
+
+                    // 元画像をずらして描画（これがノイズになる）
+                    // 簡易的な実装として、ランダムな短冊状の領域をずらして描画
+                    for (let i = 0; i < 5 + 10 * intensity; i++) {
+                        const h = Math.random() * 50 * intensity;
+                        const y = Math.random() * height;
+                        const w = width;
+                        const x = 0;
+                        const dx = (Math.random() - 0.5) * 40 * intensity;
+
+                        // 画面の一部を切り取ってずらして描画
+                        ctx.drawImage(canvas, 0, y, width, h, dx, y, width, h);
+
+                        // ランダムな色の帯
+                        if (Math.random() < 0.3) {
+                            ctx.fillStyle = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, ${0.5 * intensity})`;
+                            ctx.fillRect(0, y, width, Math.random() * 5);
+                        }
+                    }
+                    ctx.restore();
+
+                    // 減衰
+                    window.glitchIntensity *= 0.85;
+                    if (window.glitchIntensity < 0.01) window.glitchIntensity = 0;
                 }
 
                 if (isMobile) {
@@ -1367,6 +1471,36 @@
                 style: crashScore > 0.7 ? 'glitch' : (steerScore > 0.8 ? 'organic' : 'classic')
             };
 
+            // --- 診断用データの集約 (For External AI) ---
+            // ユーザー要望: 迷い(Flip), 執着(Items), リスク(Collision), 色(Color), 相性
+            const diagnosisParams = {
+                steeringHesitation: playData.steeringFlipCount, // ハンドルの迷い（切り返し回数）
+                riskTolerance: playData.collisionCount,         // リスク許容度（衝突数）
+                itemGreediness: {                               // アイテムへの執着
+                    total: Object.values(playData.itemCounts).reduce((a, b) => a + b, 0),
+                    details: playData.itemCounts
+                },
+                colorPreference: lastCollectedColor,            // 色
+                baseMetrics: {
+                    avgSpeed: avgSpeed,
+                    steerScore: steerScore,
+                    crashScore: crashScore
+                }
+            };
+
+            // 相性診断の準備（緯糸モード時）
+            if (isWeftMode && warpDataFromUrl) {
+                diagnosisParams.compatibility = {
+                    partnerWarp: warpDataFromUrl, // 相手（経糸）のパラメータ
+                    myWeft: genParams             // 自分（緯糸）のパラメータ
+                };
+                console.log("Compatibility Data Ready:", diagnosisParams.compatibility);
+            }
+
+            console.log("Diagnosis Data Generated:", diagnosisParams);
+            // 将来的にこのdiagnosisParamsを診断APIに投げたり、画面に表示したりする
+            // ---------------------------------------------------
+
             // テキスタイル生成
             // 緯糸モードの場合は経糸データをURLから取得し、自分のデータを緯糸として合成
             let dataUrl;
@@ -1392,9 +1526,40 @@
             const idStr = `MAT-${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}-${Math.floor(Math.random() * 9999)}`;
             document.getElementById('material-id').innerText = idStr;
 
+            // --- 繊維タイプ診断ロジック (Ver 2.0) ---
+            const steer = playData.steeringFlipCount;
+            const risk = playData.collisionCount;
+            const greed = Object.values(playData.itemCounts).reduce((a, b) => a + b, 0);
+
+            const result = calculateDiagnosis(playData, lastCollectedColor);
+            const { en: prefix, jp: prefixJp } = getDiagnosisPrefix(lastCollectedColor);
+
+            // 表示更新
             const styleName = genParams.style.toUpperCase();
             const dens = Math.floor(genParams.density * 100);
-            document.getElementById('spec-info').innerHTML = `STYLE: ${styleName} / DENSITY: ${dens}% <br>PALETTE: ${genParams.paletteId.toUpperCase()}`;
+
+            // 診断結果HTML構築
+            const diagnosisHtml = `
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <div style="font-size: 0.8em; opacity: 0.7; letter-spacing: 1px;">YOUR TEXTILE TYPE</div>
+                    <div style="font-family: 'DIN 2014', sans-serif; font-size: 1.4em; font-weight: 700; margin: 5px 0 0; color: #fff;">
+                        ${prefix}${result.nameEn}
+                    </div>
+                    <div style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.9em; margin-bottom: 8px;">
+                        ${prefixJp}${result.nameJp}
+                    </div>
+                    <div style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.8em; opacity: 0.8; line-height: 1.5;">
+                        ${result.desc}
+                    </div>
+                </div>
+                <div style="margin-top: 15px; font-size: 0.7em; opacity: 0.5;">
+                    <span title="Steering Hesitation">S:${steer}</span> / 
+                    <span title="Risk Tolerance">R:${risk.toFixed(1)}</span> / 
+                    <span title="Item Greediness">G:${greed}</span>
+                </div>
+            `;
+
+            document.getElementById('spec-info').innerHTML = `STYLE: ${styleName} / DENSITY: ${dens}% <br>PALETTE: ${genParams.paletteId.toUpperCase()} ${diagnosisHtml}`;
 
             // コラボレーション機能
             const collabSection = document.getElementById('collab-section');
@@ -1419,10 +1584,63 @@
             }
         }
 
+        // --- 診断ロジック関数 (Extracted) ---
+        function calculateDiagnosis(data, color) {
+            const steer = data.steeringFlipCount;
+            const risk = data.collisionCount;
+            const greed = Object.values(data.itemCounts).reduce((a, b) => a + b, 0);
+
+            let result = { id: 15, nameEn: "UNKNOWN MATERIAL", nameJp: "未解析のマテリアル", desc: "解析不能。既存の繊維データに該当しない、特異点（シンギュラリティ）。" };
+
+            // 1. 特殊枠 (優先度高)
+            if (steer < 7 && risk < 1.1 && greed < 4) {
+                result = { id: 1, nameEn: "GHOST ORGANZA", nameJp: "幽霊のオーガンジー", desc: "存在感が希薄で、透明に近い。世界に干渉することを拒んだ、儚い繊維。" };
+            } else if (risk < 1.1 && greed >= 9) {
+                result = { id: 2, nameEn: "ARMORED KEVLAR", nameJp: "武装するケブラー", desc: "圧倒的な防御力と貪欲さ。傷一つ負わずに全てを手に入れる、最強の合成繊維。" };
+            } else if (risk >= 8) {
+                result = { id: 3, nameEn: "BURNT VINYL", nameJp: "焦げたビニール", desc: "摩擦熱で溶け出し、異臭を放つ。痛みを燃料にして走る、危険な物質。" };
+            } else if (steer >= 20) {
+                result = { id: 4, nameEn: "NEURAL FIBER", nameJp: "ニューラル・ファイバー", desc: "複雑に絡み合う思考の迷路。繊細すぎて、誰にも解くことができない脳内繊維。" };
+            }
+            // 2. 通常枠
+            else {
+                if (risk < 1.1) { // Risk: Low
+                    if (steer < 7) result = { id: 5, nameEn: "PURE SILK", nameJp: "純白のシルク", desc: "迷いのない一直線の美しさ。高貴だが、汚れを知らないため染まりやすい。" };
+                    else if (greed >= 9) result = { id: 6, nameEn: "HOLOGRAPHIC FILM", nameJp: "偏光フィルム", desc: "揺れ動くたびに色を変える。多面的で掴みどころがない、現代的な輝き。" };
+                    else result = { id: 7, nameEn: "GLASS FIBER", nameJp: "グラスファイバー", desc: "繊細で折れやすいが、鋭い透過性を持つ。触れる者を傷つけるガラスの糸。" };
+                } else if (risk < 5) { // Risk: Mid (1.1 - 4.9)
+                    if (steer < 7) {
+                        if (greed >= 9) result = { id: 9, nameEn: "CLASSIC TWEED", nameJp: "伝統的なツイード", desc: "多くの色（欲望）を整然と織り込んだ、知的でトラディショナルな厚み。" };
+                        else result = { id: 8, nameEn: "HEAVY CANVAS", nameJp: "頑丈な帆布", desc: "質実剛健。面白みには欠けるが、最も信頼でき、何にでもなれる素材。" };
+                    } else {
+                        if (greed >= 9) result = { id: 11, nameEn: "ACTIVE MESH", nameJp: "躍動するメッシュ", desc: "通気性と伸縮性が抜群。じっとしていられない、エネルギーの塊。" };
+                        else result = { id: 10, nameEn: "MEDICAL GAUZE", nameJp: "癒やしのガーゼ", desc: "柔らかく、優しく包み込む。迷い傷ついた経験が、他者への優しさになる。" };
+                    }
+                } else { // Risk: High (5+)
+                    if (steer < 7) result = { id: 12, nameEn: "VINTAGE DENIM", nameJp: "ヴィンテージデニム", desc: "傷つくほどに味が出る。不器用な生き方がそのままテクスチャになった、不朽の定番。" };
+                    else if (greed >= 9) result = { id: 13, nameEn: "GLITCH NYLON", nameJp: "グリッチナイロン", desc: "ノイズと蛍光色が混ざり合う。カオスを愛する、デジタル世代のパンク素材。" };
+                    else result = { id: 14, nameEn: "BORO PATCHWORK", nameJp: "継ぎ接ぎのボロ", desc: "拾い集めた断片を縫い合わせた記憶の布。貧しいのではなく、歴史が深い。" };
+                }
+            }
+            return result;
+        }
+
+        function getDiagnosisPrefix(color) {
+            let en = "";
+            let jp = "";
+            if (color === 'red') { en = "BLEEDING "; jp = "血を流す"; }
+            else if (color === 'blue') { en = "COLD "; jp = "冷徹な"; }
+            else if (color === 'green') { en = "BIO "; jp = "生物的な"; }
+            else if (color === 'monochrome') { en = "NOIR "; jp = "漆黒の"; }
+            else if (color === 'orange') { en = "ACID "; jp = "幻覚の"; }
+            else if (color === 'purple') { en = "ROYAL "; jp = "高貴な"; }
+            return { en, jp };
+        }
+
         // --- テキスタイル生成エンジン ---
         const textileEngine = {
             palettes: {
-                black: { bg: '#ffffff', warp: '#1a1a1a', weft: '#1a1a1a' },
+                monochrome: { bg: '#ffffff', warp: '#1a1a1a', weft: '#1a1a1a' },
                 red: { bg: '#ffffff', warp: '#e60012', weft: '#e60012' },
                 blue: { bg: '#ffffff', warp: '#0066cc', weft: '#0066cc' },
                 green: { bg: '#ffffff', warp: '#009944', weft: '#009944' },
