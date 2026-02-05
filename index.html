@@ -1103,35 +1103,25 @@
                 setTimeout(() => loader.style.display = 'none', 500);
             });
 
-            // BGM設定 (ここで初期化)
-            window.bgm = new Audio('bgm.wav');
-            window.bgm.loop = true;
-            window.bgm.volume = 0.5;
-
-            // ナレーション設定
-            window.narration = new Audio('ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3');
-            window.narration.volume = 1.0;
-
-            // モーター駆動音設定
-            window.motor = new Audio('car_bgm.wav');
-            window.motor.loop = true;
-            window.motor.volume = 0.6;
-
-            // スタート画面のボタン - プリロード完了後も機能するように（ロード中は押せないが、画面が見えていれば押せる）
+            // スタート画面のボタン - プリロード完了後に機能
             document.getElementById('init-button').addEventListener('click', () => {
-                // AudioContextのアンロックのみ行う
-                if (window.bgm) window.bgm.play().then(() => window.bgm.pause()).catch(e => { });
-                if (window.motor) window.motor.play().then(() => window.motor.pause()).catch(e => { });
+                // ユーザーインタラクションと同時に再生開始
+                const bgmPromise = window.bgm.play();
+                const motorPromise = window.motor.play();
 
-                // 本再生
-                window.bgm.play().catch(e => console.log('BGM play failed:', e));
-                window.motor.play().catch(e => console.log('Motor play failed:', e));
+                // 両方の再生試行を待つ（エラーでも進むがログは出す）
+                Promise.allSettled([bgmPromise, motorPromise]).then((results) => {
+                    results.forEach((res, i) => {
+                        if (res.status === 'rejected') console.warn('Audio play failed:', i, res.reason);
+                    });
 
-                setTimeout(() => {
-                    window.narration.play().catch(e => console.log('Narration play failed:', e));
-                }, 2000);
+                    // ナレーションは少し遅れて再生
+                    setTimeout(() => {
+                        window.narration.play().catch(e => console.log('Narration play failed:', e));
+                    }, 2000);
 
-                startGameTransition();
+                    startGameTransition();
+                });
             });
 
             initRoad();
@@ -1156,14 +1146,21 @@
                 imagesToLoad.push({ img: img, src: obstacleSources[i] });
             });
 
-            // 音声ファイル
-            const audioFiles = [
-                'bgm.wav',
-                'car_bgm.wav',
-                'ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3'
-            ];
+            // 音声ファイル定義
+            // グローバルオブジェクトをここで初期化・ロードしてキャッシュとデコードを済ませる
+            window.bgm = new Audio('bgm.wav');
+            window.bgm.loop = true;
+            window.bgm.volume = 0.5;
 
-            const totalAssets = imagesToLoad.length + audioFiles.length;
+            window.motor = new Audio('car_bgm.wav');
+            window.motor.loop = true;
+            window.motor.volume = 0.6;
+
+            window.narration = new Audio('ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3');
+            window.narration.volume = 1.0;
+
+            const audioObjects = [window.bgm, window.motor, window.narration];
+            const totalAssets = imagesToLoad.length + audioObjects.length;
 
             const updateProgress = () => {
                 loadedCount++;
@@ -1174,19 +1171,38 @@
             const imagePromises = imagesToLoad.map(item => {
                 return new Promise(resolve => {
                     item.img.onload = () => { updateProgress(); resolve(); };
-                    item.img.onerror = () => { console.warn('Image load error:', item.src); updateProgress(); resolve(); }; // エラーでも進める
+                    item.img.onerror = () => { console.warn('Image load error:', item.src); updateProgress(); resolve(); };
                     item.img.src = item.src;
                 });
             });
 
-            // 音声のプリロード（fetchを使用）
-            const audioPromises = audioFiles.map(src => {
-                return fetch(src).then(() => {
-                    // キャッシュされることを期待
-                    updateProgress();
-                }).catch(e => {
-                    console.warn('Audio preload error:', src, e);
-                    updateProgress();
+            // 音声のプリロード（canplaythroughを待つ）
+            const audioPromises = audioObjects.map(audio => {
+                return new Promise(resolve => {
+                    // すでにロード済みの場合
+                    if (audio.readyState >= 4) {
+                        updateProgress();
+                        resolve();
+                        return;
+                    }
+
+                    const onLoaded = () => {
+                        updateProgress();
+                        audio.removeEventListener('canplaythrough', onLoaded);
+                        audio.removeEventListener('error', onError);
+                        resolve();
+                    };
+                    const onError = (e) => {
+                        console.warn('Audio preload error:', audio.src, e);
+                        updateProgress();
+                        audio.removeEventListener('canplaythrough', onLoaded);
+                        audio.removeEventListener('error', onError);
+                        resolve(); // エラーでも進める
+                    };
+
+                    audio.addEventListener('canplaythrough', onLoaded);
+                    audio.addEventListener('error', onError);
+                    audio.load(); // 明示的にロード
                 });
             });
 
