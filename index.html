@@ -743,7 +743,7 @@
         <!-- 共通イベント情報フッター -->
         <div
             style="margin: 30px 0; font-family: 'DIN 2014', sans-serif; font-size: 10px; color: #888; text-align: center; letter-spacing: 2px; border-top: 1px solid #eee; padding-top: 15px; width: 80%;">
-            EXHIBITION: 2026.02.28 SAT / MATERIAL INDUSTRY LAB
+            EXHIBITION: 2026.02.28 SAT / MAU Textile Industry Laboratory
         </div>
 
         <!-- テキスタイル生成用 高解像度Canvas (不可視) -->
@@ -962,9 +962,10 @@
         let lastSteerDir = 0;
 
         // 画像
-        const carImgStraight = new Image(); carImgStraight.src = 'car_straight.png';
-        const carImgLeft = new Image(); carImgLeft.src = 'car2_left.png';
-        const carImgRight = new Image(); carImgRight.src = 'car2_right.png';
+        // 画像 (Globals) - src設定はinitで行うか、ここで設定してPreloaderで監視する
+        const carImgStraight = new Image();
+        const carImgLeft = new Image();
+        const carImgRight = new Image();
 
         // 車のカラーフィルター（アイテム取得で変化）
         let carColorHue = 0;  // 0=通常, 180=青, 330=赤, 90=緑, 30=オレンジ
@@ -975,11 +976,7 @@
 
         // 障害物画像
         const obstacleSources = ['dram.png', 'dram2.png', 'wall.png', 'wall2.png'];
-        const obstacleImgs = obstacleSources.map(src => {
-            const img = new Image();
-            img.src = src;
-            return img;
-        });
+        const obstacleImgs = obstacleSources.map(src => new Image()); // 空のImageを作成
 
         // 道路データ
         const segments = [];
@@ -1098,7 +1095,15 @@
                 touchSteerDir = 0;
             });
 
-            // BGM設定
+            // プリロード処理
+            preloadAssets().then(() => {
+                console.log('All assets loaded');
+                const loader = document.getElementById('loading-overlay');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+            });
+
+            // BGM設定 (ここで初期化)
             window.bgm = new Audio('bgm.wav');
             window.bgm.loop = true;
             window.bgm.volume = 0.5;
@@ -1112,8 +1117,13 @@
             window.motor.loop = true;
             window.motor.volume = 0.6;
 
-            // スタート画面のボタン
+            // スタート画面のボタン - プリロード完了後も機能するように（ロード中は押せないが、画面が見えていれば押せる）
             document.getElementById('init-button').addEventListener('click', () => {
+                // AudioContextのアンロックのみ行う
+                if (window.bgm) window.bgm.play().then(() => window.bgm.pause()).catch(e => { });
+                if (window.motor) window.motor.play().then(() => window.motor.pause()).catch(e => { });
+
+                // 本再生
                 window.bgm.play().catch(e => console.log('BGM play failed:', e));
                 window.motor.play().catch(e => console.log('Motor play failed:', e));
 
@@ -1129,6 +1139,58 @@
             initItems();
 
             requestAnimationFrame(loop);
+        }
+
+        // --- アセットプリロード ---
+        function preloadAssets() {
+            const progress = document.getElementById('loading-progress');
+            let loadedCount = 0;
+            const imagesToLoad = [
+                { img: carImgStraight, src: 'car_straight.png' },
+                { img: carImgLeft, src: 'car2_left.png' },
+                { img: carImgRight, src: 'car2_right.png' }
+            ];
+
+            // 障害物
+            obstacleImgs.forEach((img, i) => {
+                imagesToLoad.push({ img: img, src: obstacleSources[i] });
+            });
+
+            // 音声ファイル
+            const audioFiles = [
+                'bgm.wav',
+                'car_bgm.wav',
+                'ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3'
+            ];
+
+            const totalAssets = imagesToLoad.length + audioFiles.length;
+
+            const updateProgress = () => {
+                loadedCount++;
+                const pct = Math.floor((loadedCount / totalAssets) * 100);
+                if (progress) progress.style.width = `${pct}%`;
+            };
+
+            const imagePromises = imagesToLoad.map(item => {
+                return new Promise(resolve => {
+                    item.img.onload = () => { updateProgress(); resolve(); };
+                    item.img.onerror = () => { console.warn('Image load error:', item.src); updateProgress(); resolve(); }; // エラーでも進める
+                    item.img.src = item.src;
+                });
+            });
+
+            // 音声のプリロード（fetchを使用）
+            const audioPromises = audioFiles.map(src => {
+                return fetch(src).then(() => {
+                    // キャッシュされることを期待
+                    updateProgress();
+                }).catch(e => {
+                    console.warn('Audio preload error:', src, e);
+                    updateProgress();
+                });
+            });
+
+            return Promise.all([...imagePromises, ...audioPromises]);
         }
 
         function startGameTransition() {
