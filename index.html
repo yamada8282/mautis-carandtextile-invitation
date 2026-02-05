@@ -57,7 +57,10 @@
         #speedometer {
             position: fixed;
             top: 20px;
-            right: 20px;
+            /* right: 20px; */
+            /* 中央配置に変更 */
+            left: 50%;
+            transform: translateX(-50%);
             color: #000;
             font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
             font-size: 18px;
@@ -65,6 +68,7 @@
             z-index: 30;
             padding: 10px 15px;
             border-bottom: 2px solid #000;
+            text-align: center;
         }
 
         #speedometer .label {
@@ -194,38 +198,43 @@
 
         @keyframes glitch {
             0% {
-                opacity: 0;
-                transform: translateX(0);
-            }
-
-            10% {
-                opacity: 1;
-                transform: translateX(-5px);
+                transform: translate(0);
             }
 
             20% {
-                opacity: 0.8;
-                transform: translateX(5px);
-            }
-
-            30% {
-                opacity: 1;
-                transform: translateX(-3px);
+                transform: translate(-5px, 5px);
             }
 
             40% {
-                opacity: 0.9;
-                transform: translateX(3px);
+                transform: translate(-5px, -5px);
             }
 
-            50% {
-                opacity: 1;
-                transform: translateX(0);
+            60% {
+                transform: translate(5px, 5px);
+            }
+
+            80% {
+                transform: translate(5px, -5px);
             }
 
             100% {
-                opacity: 0;
+                transform: translate(0);
             }
+        }
+
+        /* ホワイトアウト・オーバーレイ */
+        #whiteout-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 5000;
+            transition: none;
+            /* JS制御のためtransition削除 */
         }
 
         /* 結果画面 */
@@ -481,6 +490,81 @@
             background: #fff;
             color: #000;
         }
+
+        /* SKIPボタン */
+        #skip-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 6px 12px;
+            font-family: 'DIN 2014', sans-serif;
+            font-size: 11px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            z-index: 2000;
+            display: none;
+            /* 初期は非表示 */
+            pointer-events: auto;
+        }
+
+        #skip-btn:hover {
+            background: #fff;
+            color: #000;
+        }
+
+        /* TAP TO START */
+        #tap-to-start {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'DIN 2014', sans-serif;
+            font-size: 24px;
+            letter-spacing: 4px;
+            color: #333;
+            animation: blink 1.5s infinite;
+            display: none;
+            z-index: 2000;
+            pointer-events: none;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        /* スピードメーター位置調整（不要になったが念のため残すか、削除） */
+        /* #speedometer.center-top { ... } 削除済み */
+
+        /* 字幕スタイル（念のため定義） */
+        #caption {
+            position: fixed;
+            top: 30%;
+            /* 画面上部へ移動 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            text-align: center;
+            color: #000;
+            /* 黒文字に変更 */
+            font-family: 'DIN 2014', 'Noto Sans JP', sans-serif;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 1500;
+            transition: opacity 0.5s;
+        }
     </style>
 </head>
 
@@ -529,11 +613,14 @@
     </div>
 
     <div id="scanlines"></div>
+    <div id="whiteout-overlay"></div>
     <div id="ui-layer">
         <p id="caption">SYSTEM BOOTING...</p>
         <div id="audio-controls">
             <div id="game-audio-btn" class="audio-btn" onclick="toggleAudio()">SOUND ON</div>
         </div>
+        <div id="skip-btn">SKIP &gt;&gt;</div>
+        <div id="tap-to-start">TAP TO START</div>
     </div>
     <div id="speedometer">
         <div class="label">SPEED</div>
@@ -884,13 +971,13 @@
             drawDistance: 300,
             // 物理挙動
             physics: {
-                maxSpeed: 12000,   // 最高速度
-                accel: 15,         // 加速度
-                breaking: -200,    // 減速度
-                decel: -50,        // 自然減速
-                offRoadDecel: -200,// コースアウト減速
-                offRoadLimit: 2000,// コースアウト判定幅
-                speedMultiplier: 0.006
+                maxSpeed: 18000,   // 最高速度 (1.5倍)
+                accel: 23,         // 加速度 (1.5倍)
+                breaking: -300,    // 減速度 (1.5倍)
+                decel: -75,        // 自然減速 (1.5倍)
+                offRoadDecel: -300,// コースアウト減速 (1.5倍)
+                offRoadLimit: 3000,// コースアウト判定幅 (1.5倍)
+                speedMultiplier: 0.006 // 移動係数 (元に戻す：speed自体が増えているため)
             }
         };
 
@@ -1004,26 +1091,40 @@
         window.motor = audioAssets.motor;
         window.narration = audioAssets.narration;
 
-        function initObstacles() {
+        function initObstacles(startSegmentIndex = 0) {
             obstacles.length = 0;
-            // 障害物をランダムに配置
-            for (let i = 0; i < 40; i++) {
+            // 障害物をランダムに配置 (指定位置以降)
+            const count = 40;
+            for (let i = 0; i < count; i++) {
+                // 開始位置から全周の範囲で配置
+                const offset = Math.floor(Math.random() * totalSegments);
+                const idx = (startSegmentIndex + offset) % totalSegments;
+
+                // 目の前(スタート直後)すぎる場合は避ける (例えば +50 セグメント以降)
+                if (Math.abs(idx - startSegmentIndex) < 50) continue;
+
                 obstacles.push({
-                    segmentIndex: Math.floor(Math.random() * totalSegments),
+                    segmentIndex: idx,
                     x: (Math.random() - 0.5) * 1.5,
-                    type: Math.floor(Math.random() * obstacleImgs.length), // 画像タイプ
+                    type: Math.floor(Math.random() * obstacleImgs.length),
                     hit: false
                 });
             }
         }
 
-        function initItems() {
+        function initItems(startSegmentIndex = 0) {
             items.length = 0;
-            // 6色システム（白背景で映える色）
+            // 6色システム
             const colors = ['monochrome', 'red', 'blue', 'green', 'orange', 'purple'];
-            for (let i = 0; i < 20; i++) {
+            const count = 20;
+            for (let i = 0; i < count; i++) {
+                const offset = Math.floor(Math.random() * totalSegments);
+                const idx = (startSegmentIndex + offset) % totalSegments;
+
+                if (Math.abs(idx - startSegmentIndex) < 50) continue;
+
                 items.push({
-                    segmentIndex: Math.floor(Math.random() * totalSegments),
+                    segmentIndex: idx,
                     x: (Math.random() - 0.5) * 1.8,
                     color: colors[Math.floor(Math.random() * colors.length)],
                     hit: false,
@@ -1110,7 +1211,28 @@
             }, { passive: false });
 
             canvas.addEventListener('touchend', e => {
-                touchSteerDir = 0;
+                if (gameState === 'ready') {
+                    // READY状態ならタップでゲーム開始
+                    startGame();
+                } else if (gameState === 'playing') {
+                    touchSteerDir = 0;
+                }
+            });
+
+            // PC用マウスイベント（クリック/タップ対応）
+            canvas.addEventListener('mousedown', e => {
+                if (gameState === 'ready') {
+                    startGame();
+                }
+            });
+
+            // SKIPボタンイベント
+            document.getElementById('skip-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (gameState === 'opening') {
+                    endOpening();
+                }
             });
 
             // プリロード処理
@@ -1138,7 +1260,7 @@
                 };
 
                 playAudio(window.bgm);
-                playAudio(window.motor);
+                // playAudio(window.motor); // スタートしてから再生に変更
 
                 setTimeout(() => {
                     playAudio(window.narration);
@@ -1218,10 +1340,6 @@
         }
 
         function startGameTransition() {
-            // グリッチエフェクト（バババッてなるやつ）は削除してフェードアウトにする
-            // const glitchOverlay = document.getElementById('glitch-overlay');
-            // glitchOverlay.classList.add('active');
-
             const startScreen = document.getElementById('start-screen');
             startScreen.style.transition = 'opacity 0.5s';
             startScreen.style.opacity = '0';
@@ -1229,15 +1347,92 @@
             setTimeout(() => {
                 startScreen.classList.add('hidden');
                 startScreen.style.display = 'none'; // 確実に非表示
-                startGame();
+                // ここでいきなりstartGameではなく、Openingを開始
+                startOpening();
             }, 500);
         }
 
+        // --- 新しいフェーズ管理関数 ---
+
+        function startOpening() {
+            gameState = 'opening';
+            gameStartTime = Date.now(); // 追加: 字幕用タイマー初期化
+
+            // 車の色を白（モノクロ）にリセット
+            lastCollectedColor = 'monochrome';
+            carColorHue = 0;
+            carColorSaturate = 0;
+
+            document.getElementById('audio-controls').style.display = 'block';
+            document.getElementById('skip-btn').style.display = 'block';
+
+            // スピードメーター位置調整（常時中央になったので削除）
+            // const speedMeter = document.getElementById('speedometer');
+            // if (speedMeter) speedMeter.classList.add('center-top');
+
+            // 字幕初期化
+            const cap = document.getElementById('caption');
+            if (cap) {
+                cap.innerHTML = "SYSTEM BOOTING...";
+                cap.style.opacity = '1';
+            }
+
+            // ナレーション終了検知
+            window.narration.onended = () => {
+                if (gameState === 'opening') {
+                    endOpening();
+                }
+            };
+
+            // オートラン速度設定 (ゆっくり)
+            speed = 100;
+
+            // 障害物は空にする
+            obstacles.length = 0;
+            items.length = 0;
+        }
+
+        function endOpening() {
+            gameState = 'ready';
+            document.getElementById('skip-btn').style.display = 'none';
+
+            // スピードメーター位置戻す（常時中央なので削除）
+            // const speedMeter = document.getElementById('speedometer');
+            // if (speedMeter) speedMeter.classList.remove('center-top');
+
+            // ナレーション停止
+            window.narration.pause();
+            window.narration.currentTime = 0;
+            window.narration.onended = null;
+
+            // TAP TO START 表示
+            const tapMsg = document.getElementById('tap-to-start');
+            tapMsg.style.display = 'block';
+        }
+
         function startGame() {
-            document.getElementById('audio-controls').style.display = 'block'; // オーディオボタン表示
+            // TAP TO START 非表示
+            document.getElementById('tap-to-start').style.display = 'none';
+
             gameState = 'playing';
+
+            // エンジン音開始
+            if (window.motor) {
+                window.motor.play().catch(e => console.warn('Motor play failed', e));
+            }
+
             gameStartTime = Date.now();
+            lastTime = gameStartTime; // デルタタイム計算用
             gameEnded = false;
+
+            // ホワイトアウトリセット
+            const wo = document.getElementById('whiteout-overlay');
+            if (wo) wo.style.opacity = '0';
+
+            // 音量リセット（フェードアウト後用）
+            if (window.bgm) window.bgm.volume = 0.5;
+            if (window.motor) window.motor.volume = 0.6;
+
             // データリセット/初期化
             playData = {
                 weaveType: 0,
@@ -1251,16 +1446,19 @@
                 totalDistance: 0,
                 itemCounts: { blue: 0, red: 0, green: 0, orange: 0 }
             };
-            lastPlayerX = 0;
-            steeringVariance = 0;
+            lastPlayerX = playerX; // 現在位置を維持
+            // steeringVariance = 0; // そのまま
             steeringInputSum = 0;
             steeringFlipCount = 0;
             lastSteerDir = 0;
-            position = 0;
-            playerX = 0;
-            speed = 0;
 
-            initItems(); // ゲーム開始時にもアイテム再配置
+            // ポジション維持 (position = 0 を削除)
+            // 道路生成もしない (initRoad 削除)
+
+            // 障害物とアイテムのみ再配置（現在の位置より先から）
+            const currentSegIndex = Math.floor(position / segmentLength) % totalSegments;
+            initObstacles(currentSegIndex);
+            initItems(currentSegIndex);
 
             // 車のカラーリセット
             carColorHue = 0;
@@ -1289,7 +1487,8 @@
 
         // --- 描画ループ ---
         function render() {
-            if (gameState !== 'playing') return;
+            // playing, opening, ready のいずれかなら描画する
+            if (gameState !== 'playing' && gameState !== 'opening' && gameState !== 'ready') return;
 
             ctx.clearRect(0, 0, width, height);
             ctx.fillStyle = '#fff';
@@ -1360,6 +1559,9 @@
 
             // 障害物描画
             obstacles.forEach(obstacle => {
+                // OPENING/READY中は障害物を描画しない（そもそも空だが念のため）
+                if (gameState !== 'playing') return;
+
                 if (obstacle.hit) return;
                 const p = projected[obstacle.segmentIndex];
                 if (!p) return;
@@ -1631,7 +1833,85 @@
                 // 5. 最後にメインキャンバスへ描画
                 ctx.drawImage(window.carTintCanvas, carX, carY, carDisplayWidth, carDisplayHeight);
                 ctx.restore();
+                return;
             }
+        }
+
+        let woOverlay = null; // キャッシュ用
+
+        // --- 更新ルーチン ---
+        function update(dt) {
+            // OPENING: オートラン（字幕用）
+            if (gameState === 'opening') {
+                speed = 400; // 30km/h程度で走行するように変更 
+                position = (position + speed * dt) % (segments.length * segmentLength);
+
+                // 字幕更新
+                const elapsed = (Date.now() - gameStartTime) / 1000; // 秒
+                // duration(35s)に合わせて字幕を出す
+                const totalDuration = 35;
+                const timeProg = Math.min(1.0, elapsed / totalDuration);
+
+                let textJP = "";
+                let textEN = "";
+
+                if (elapsed < 1.0) {
+                    // 開始1秒間は何も表示しない
+                    textEN = "";
+                    textJP = "";
+                } else if (elapsed < 4.0) {
+                    textEN = "Textiles carry stories within them.";
+                    textJP = "繊維には、物語があります。";
+                } else if (elapsed < 11.0) {
+                    textEN = "Some gain character through years of use,<br>while others are discarded, never knowing a human touch.";
+                    textJP = "何度も使われ、味わいを帯びた繊維。<br>誰にも触れられず、役目を果たせないまま廃棄される繊維。";
+                } else if (elapsed < 15.0) {
+                    textEN = "Inside every car, textiles live in silence.";
+                    textJP = "車の中にも、ひっそりと息づく繊維があります。";
+                } else if (elapsed < 20.0) {
+                    textEN = "Seats, floors, filters, and cushions.";
+                    textJP = "シート、フロア、フィルター、クッション。";
+                } else if (elapsed < 29.0) {
+                    textEN = "We gently unearth their hidden narratives<br>to weave new possibilities for the future.";
+                    textJP = "私たちは、その物語を丁寧にすくい上げ、<br>繊維が持つ新たな可能性を紡いでいきます。";
+                } else {
+                    textEN = "";
+                    textJP = "";
+                }
+
+                if (textEN && textJP) {
+                    caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 0.9em;">${textEN}</span><br><span style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.8em; opacity: 0.9;">${textJP}</span>`;
+                    caption.style.opacity = 1;
+                } else {
+                    caption.style.opacity = 0;
+                }
+
+                // Openingでもメーターを動かす
+                const actualSpeed = speed * speedMultiplier * 1.8; // 18000 * 0.006 * 1.8 = 194.4km/h
+                const jitter = (Math.random() - 0.5) * 0.2; // ジッターを少し控えめに
+                if (speedValue) speedValue.textContent = (actualSpeed + jitter).toFixed(1);
+
+                return;
+            }
+
+            // READY: 減速停止
+            if (gameState === 'ready') {
+                caption.style.opacity = 0; // 字幕消す
+                // より自然なブレーキ：一定の減速度で0に向かう
+                if (speed > 0) {
+                    speed -= 8; // 毎フレーム一定量減速
+                    if (speed < 0) speed = 0;
+                }
+                position = (position + speed * dt) % (segments.length * segmentLength);
+
+                // メーターを徐々に0にする
+                const actualSpeed = speed * speedMultiplier * 1.8;
+                if (speedValue) speedValue.textContent = actualSpeed.toFixed(1);
+                return;
+            }
+
+            // PLAYING: 通常制御
+            if (gameState !== 'playing') return;
 
             // --- データ計測 ---
             playData.totalDistance += speed * speedMultiplier;
@@ -1658,69 +1938,56 @@
             lastSteerDir = currentSteer;
             if (Math.random() < 0.05) playData.speedHistory.push(speed);
 
-            // 字幕更新
+            // 字幕更新（PLAYING中は非表示）
+            caption.style.opacity = 0;
+
+            // 速度UI更新
+            const actualSpeed = speed * speedMultiplier * 1.8;
+            speedValue.textContent = actualSpeed.toFixed(1);
+
             const elapsed = Date.now() - gameStartTime;
-            const subtitleElapsed = elapsed - 1800;
-            const timeProg = Math.min(1.0, Math.max(0, subtitleElapsed) / gameDuration);
 
-            let textJP = "";
-            let textEN = "";
-            if (subtitleElapsed < 0) {
-            } else if (timeProg < 0.08) {
-                textEN = "Textiles carry stories within them.";
-                textJP = "繊維には、物語があります。";
-            } else if (timeProg < 0.28) {
-                textEN = "Some gain character through years of use,<br>while others are discarded, never knowing a human touch.";
-                textJP = "何度も使われ、味わいを帯びた繊維。<br>誰にも触れられず、役目を果たせないまま廃棄される繊維。";
-            } else if (timeProg < 0.45) {
-                textEN = "Inside every car, textiles live in silence.";
-                textJP = "車の中にも、ひっそりと息づく繊維があります。";
-            } else if (timeProg < 0.60) {
-                textEN = "Seats, floors, filters, and cushions.";
-                textJP = "シート、フロア、フィルター、クッション。";
-            } else if (timeProg < 0.80) {
-                textEN = "We gently unearth their hidden narratives<br>to weave new possibilities for the future.";
-                textJP = "私たちは、その物語を丁寧にすくい上げ、<br>繊維が持つ新たな可能性を紡いでいきます。";
-            } else {
-                textEN = "Proceed to the exhibition.";
-                textJP = "";
+            // 残り3秒からホワイトアウトとフェードアウト
+            const fadeStart = gameDuration - 2000;
+            if (elapsed > fadeStart) {
+                const fadeProg = Math.min(1.0, (elapsed - fadeStart) / 2000);
+
+                // 1. ホワイトアウト (キャッシュ使用)
+                if (!woOverlay) woOverlay = document.getElementById('whiteout-overlay');
+                if (woOverlay) woOverlay.style.opacity = fadeProg;
+
+                // 2. 音量フェードアウト
+                if (window.bgm) window.bgm.volume = 0.5 * (1 - fadeProg);
+                if (window.motor) window.motor.volume = 0.6 * (1 - fadeProg);
             }
-
-            if (textEN && textJP) {
-                caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 0.9em;">${textEN}</span><br><span style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.8em; opacity: 0.9;">${textJP}</span>`;
-            } else {
-                caption.innerHTML = `<span style="font-family: 'DIN 2014', 'Barlow', sans-serif;">${textEN || textJP}</span>`;
-            }
-
-            // 演出と速度
-            if (timeProg > 0.9) {
-                const fade = (timeProg - 0.9) * 10;
-                ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
-                ctx.fillRect(0, 0, width, height);
-                const vol = Math.max(0, 1.0 - Math.pow(fade, 2));
-                if (window.bgm) window.bgm.volume = vol * 0.5;
-                if (window.motor) window.motor.volume = vol * 0.6;
-            }
-
-            const actualSpeed = speed * speedMultiplier * 2.5;
-            speedValue.textContent = Math.floor(actualSpeed);
 
             if (elapsed > gameDuration && !gameEnded) {
                 endGame();
             }
         }
 
+        let lastTime = 0;
+
         // --- メインループ ---
         function loop() {
             if (gameState === 'start') {
+                lastTime = Date.now();
                 requestAnimationFrame(loop);
                 return;
             }
 
+            const now = Date.now();
+            // デルタタイム計算 (最大0.1秒でキャップして飛び飛び防ぐ)
+            const dt = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            // 共通更新処理
+            update(dt);
+
             if (gameState === 'playing') {
                 const elapsed = Date.now() - gameStartTime;
                 if (elapsed > gameDuration && !gameEnded) {
-                    endGame(); // 念のためここでも呼ぶ
+                    endGame();
                     requestAnimationFrame(loop);
                     return;
                 }
@@ -1730,32 +1997,16 @@
                     const intensity = window.glitchIntensity;
 
                     // 1. 画面のずれ（RGB分離風）
-                    const shiftX = (Math.random() - 0.5) * 20 * intensity;
-                    const shiftY = (Math.random() - 0.5) * 10 * intensity;
-
                     ctx.save();
                     ctx.globalCompositeOperation = 'screen';
-                    // 白く光らせる（赤から変更）
                     ctx.fillStyle = `rgba(255, 255, 255, ${0.5 * intensity})`;
-                    ctx.fillRect(0, 0, width, height); // 全体を軽く白く
+                    ctx.fillRect(0, 0, width, height);
 
-                    // 元画像をずらして描画（これがノイズになる）
-                    // 簡易的な実装として、ランダムな短冊状の領域をずらして描画
                     for (let i = 0; i < 5 + 10 * intensity; i++) {
                         const h = Math.random() * 50 * intensity;
                         const y = Math.random() * height;
-                        const w = width;
-                        const x = 0;
                         const dx = (Math.random() - 0.5) * 40 * intensity;
-
-                        // 画面の一部を切り取ってずらして描画
                         ctx.drawImage(canvas, 0, y, width, h, dx, y, width, h);
-
-                        // ランダムな色の帯
-                        if (Math.random() < 0.3) {
-                            ctx.fillStyle = `rgba(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255}, ${0.5 * intensity})`;
-                            ctx.fillRect(0, y, width, Math.random() * 5);
-                        }
                     }
                     ctx.restore();
 
@@ -1764,17 +2015,20 @@
                     if (window.glitchIntensity < 0.01) window.glitchIntensity = 0;
                 }
 
+                const dtScale = dt * 60; // 60FPS基準のスケール係数
+
                 if (isMobile) {
-                    speed += accel * 2;
+                    // Mobile加速ブースト削除（基本速度を上げたため）
+                    speed += accel * dtScale;
                 } else {
-                    if (keyFaster) speed += accel; else speed += decel;
+                    if (keyFaster) speed += accel * dtScale; else speed += decel * dtScale;
                 }
 
                 const currentSeg = segments[Math.floor(position / segmentLength) % segments.length];
-                const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.000005;
+                const curveForce = currentSeg.curve * (speed / maxSpeed) * 0.000005 * dtScale;
                 playerX += curveForce;
 
-                const steerSpeed = isMobile ? 0.025 : 0.01;
+                const steerSpeed = isMobile ? 0.04 : 0.015; // ハンドル感度 (1.5倍)
                 let steerDir = 0;
                 if (isMobile) {
                     steerDir = touchSteerDir;
@@ -1782,31 +2036,32 @@
                     steerDir = (keyRight ? 1 : 0) + (keyLeft ? -1 : 0);
                 }
                 if (steerDir !== 0) {
-                    playerX += steerDir * steerSpeed;
+                    playerX += steerDir * steerSpeed * dtScale;
                 }
 
                 // データ収集
                 lastPlayerX = playerX;
-                const normalizedSpeed = speed / maxSpeed;
 
                 // コースアウト判定
                 if ((playerX < -1 || playerX > 1) && speed > offRoadLimit) {
-                    speed += offRoadDecel;
-                    playData.collisionCount += 0.05; // renderでのカウントと合わせる
+                    speed += offRoadDecel * dtScale;
+                    playData.collisionCount += 0.05 * dtScale;
                 }
 
                 playerX = Math.max(-2, Math.min(2, playerX));
                 speed = Math.max(0, Math.min(maxSpeed, speed));
 
-                position += speed * speedMultiplier;
+                // speedMultiplierは定数(0.006)なので、これにdtScaleを掛けることで移動量を実時間依存にする
+                position += speed * speedMultiplier * dtScale;
                 while (position >= totalSegments * segmentLength) position -= totalSegments * segmentLength;
                 while (position < 0) position += totalSegments * segmentLength;
+            }
 
+            // 描画 (Playing, Opening, Ready)
+            if (gameState === 'playing' || gameState === 'opening' || gameState === 'ready') {
                 render();
             }
-            if (gameState === 'result') {
-                // 結果画面でもアニメーションさせてもいいが、一旦停止
-            }
+
             if (!gameEnded) {
                 requestAnimationFrame(loop);
             }
@@ -1826,6 +2081,13 @@
             document.getElementById('speedometer').style.display = 'none';
             document.getElementById('gameCanvas').style.display = 'none';
             document.getElementById('scanlines').style.display = 'none';
+
+            // ホワイトアウト解除
+            const wo = document.getElementById('whiteout-overlay');
+            if (wo) {
+                wo.style.opacity = '0';
+                setTimeout(() => wo.style.display = 'none', 500); // フェード後に消す
+            }
 
             const resScreen = document.getElementById('result-screen');
             resScreen.classList.add('active');
@@ -1860,14 +2122,14 @@
             const greedScore = Math.min(1.0, totalItems / 10);
 
             // S (Steer): 迷い度 (切り返し回数重視)
-            // Flip回数: 意図的な切り返し。5〜10回で十分「迷っている」とみなす
-            const flipScore = Math.min(1.0, playData.steeringFlipCount / 8);
+            // Flip回数: 意図的な切り返し。20回以上で「迷い」とみなすよう緩和
+            const flipScore = Math.min(1.0, playData.steeringFlipCount / 24);
             // Wander: 入力総量。あくまで補助的（カーブ対応分も含むため）
             const avgSteeringInput = steeringInputSum / (playData.speedHistory.length || 1);
             const wanderScore = Math.min(1.0, avgSteeringInput * 2.0);
 
             // 迷い度 = 切り返し(80%) + 蛇行量(20%)
-            const steerScore = (flipScore * 0.8) + (wanderScore * 0.2);
+            const steerScore = (flipScore * 0.9) + (wanderScore * 0.1);
 
             // R (Risk): リスク許容度 (衝突数)
             // 0回=0.0, 5回以上=1.0
@@ -2139,9 +2401,9 @@
             // 1. Steering & Speed (Shape)
             let shapeText = "";
             const flipCount = params.steeringHesitation;
-            if (sScore > 0.5) {
+            if (sScore > 0.6) {
                 shapeText = `頻繁な切り返し（Flip: ${flipCount}回）が記録されました。その心の揺れが、${subject}に激しい波打ちを与え、複雑に歪んだ形状を生み出しています。`;
-            } else if (sScore > 0.2) {
+            } else if (sScore > 0.25) {
                 shapeText = `時折見せたハンドルの揺らぎ（Flip: ${flipCount}回）が、${subject}に有機的で柔らかなウェーブを描き出しました。`;
             } else {
                 shapeText = `迷いのないハンドル操作（Flip: ${flipCount}回）で、スムーズに走り抜けました。そのため、${subject}は美しく真っ直ぐに伸び、凛とした表情を持っています。`;
