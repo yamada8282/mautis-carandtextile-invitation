@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VIP Link Generator</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        h1 {
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+        }
+
+        .config-area {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8f8f8;
+        }
+
+        .copy-btn {
+            padding: 5px 10px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .copy-btn:hover {
+            background: #0056b3;
+        }
+
+        .success {
+            background-color: #d4edda;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            font-family: monospace;
+        }
+
+        .url-preview {
+            font-size: 11px;
+            color: #555;
+            word-break: break-all;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>VIP Link Generator</h1>
+    <p>招待客用リスト定義から、全員分の専用URLを一括生成します。</p>
+
+    <div class="config-area">
+        <label><strong>base URL:</strong></label><br>
+        <input type="text" id="baseUrl" value="https://mautis-carandtextile-invitation.vercel.app/"
+            style="width: 100%; padding: 8px; box-sizing: border-box; margin-bottom: 10px;">
+
+        <label><strong>VIP List (JSON format):</strong> <small>※index.htmlと同じ内容にしてください</small></label><br>
+        <textarea id="vipJson">
+{
+    "vip001": { "name": "SOMA YAMADA", "role": "Special Guest" },
+    "vip002": { "name": "TEST GUEST A", "role": "V.I.P." },
+    "vip003": { "name": "TEST GUEST B", "role": "V.I.P." }
+}</textarea>
+        <button onclick="generateTable()" style="margin-top: 10px; padding: 8px 16px;">Generate Table</button>
+    </div>
+
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Link</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- generated rows -->
+        </tbody>
+    </table>
+
+    <script>
+        function generateTable() {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const vipJsonStr = document.getElementById('vipJson').value;
+            const tableBody = document.querySelector('#resultTable tbody');
+            tableBody.innerHTML = '';
+
+            try {
+                const vipList = JSON.parse(vipJsonStr);
+
+                for (const [id, data] of Object.entries(vipList)) {
+                    // ?vip=ID
+                    const link = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}vip=${id}`;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${id}</td>
+                        <td>${data.name}<br><small style="color:#999">${data.role}</small></td>
+                        <td class="url-preview">${link}</td>
+                        <td><button class="copy-btn" onclick="copyLink(this, '${link}')">Copy Link</button></td>
+                    `;
+                    tableBody.appendChild(row);
+                }
+
+            } catch (e) {
+                alert("JSONパースエラー: " + e.message);
+            }
+        }
+
+        function copyLink(btn, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = "Copied!";
+                btn.style.background = "#28a745";
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.background = "#007bff";
+                }, 2000);
+            });
+        }
+
+        // 初期実行
+        generateTable();
+    </script>
+</body>
+
+</html>

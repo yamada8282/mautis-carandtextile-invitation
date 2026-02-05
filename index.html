@@ -339,14 +339,98 @@
             color: #fff;
         }
 
-        #data-explanation {
+        #result-screen {
             display: none;
-            font-size: 9px;
-            color: #999;
-            margin-top: 30px;
-            max-width: 300px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            z-index: 100;
+            overflow-y: auto;
+            /* スクロール可能に */
+            padding-bottom: 50px;
+        }
+
+        #result-screen.active {
+            display: flex;
+        }
+
+        /* 統合レポートスタイル */
+        #analysis-report {
+            width: 85%;
+            max-width: 500px;
+            margin: 20px auto;
             text-align: left;
-            line-height: 1.6;
+            font-family: 'Noto Sans JP', sans-serif;
+            color: #333;
+            line-height: 1.8;
+            font-size: 13px;
+        }
+
+        .report-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .report-title {
+            font-family: 'DIN 2014', sans-serif;
+            font-size: 11px;
+            letter-spacing: 2px;
+            color: #999;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+        }
+
+        .report-text {
+            margin-bottom: 15px;
+        }
+
+        .diagnosis-name-en {
+            font-family: 'DIN 2014', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-top: 20px;
+            line-height: 1.1;
+        }
+
+        .diagnosis-name-jp {
+            font-size: 14px;
+            font-weight: 500;
+            margin-top: 5px;
+            opacity: 0.8;
+            margin-bottom: 15px;
+        }
+
+        .diagnosis-desc {
+            font-size: 12px;
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        /* 画像表示調整 */
+        .material-image {
+            width: 250px;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 50%;
+            /* 丸くする */
+            margin: 30px 0 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .material-id {
+            font-family: 'DIN 2014', monospace;
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: #ccc;
+            margin-bottom: 10px;
         }
 
         /* オーディオコントロール */
@@ -528,29 +612,34 @@
 
     <!-- 結果画面 -->
     <div id="result-screen">
-        <div class="header">MATERIAL ANALYSIS REPORT</div>
-        <div style="font-size: 10px; color: #666; margin-bottom: 15px;">素材分析レポート</div>
+        <div class="header" style="margin-top: 30px;">MATERIAL ANALYSIS REPORT</div>
+        <div style="font-size: 10px; color: #666; margin-bottom: 20px;">素材分析レポート</div>
+
         <div class="loading" id="loading-text">ANALYZING MATERIAL DATA...</div>
+
+        <!-- 画像 -->
         <img id="material-image" class="material-image" style="display: none;" />
+
+        <!-- マテリアルID -->
         <div class="material-id" id="material-id" style="display: none;"></div>
-        <div class="spec-info" id="spec-info" style="display: none;"></div>
-        <div class="share-buttons" id="share-buttons" style="display: none;">
+
+        <!-- 統合レポートエリア -->
+        <div id="analysis-report" style="display: none;"></div>
+
+        <!-- シェアボタン -->
+        <div class="share-buttons" id="share-buttons" style="display: none; margin-bottom: 40px;">
             <button class="share-btn" onclick="shareToInstagram()">SHARE DATA</button>
             <button class="share-btn" onclick="shareToTwitter()">Twitter</button>
             <button class="share-btn" onclick="shareToLINE()">LINE</button>
         </div>
+
+        <!-- 予約ボタン（またはチケット保存ボタン） -->
         <button class="reserve-btn" id="reserve-btn" style="display: none;" onclick="goToReservation()">RESERVE
             TICKET</button>
-        <div id="data-explanation">
-            <div style="margin-bottom: 8px; font-weight: 500; color: #666;">― データ解析結果 ―</div>
-            <div>・蛇行量 → 織りの揺らぎ (Warp)</div>
-            <div>・衝突数 → ノイズ・グリッチ (Texture)</div>
-            <div>・アイテム → カラーパレット (Color)</div>
-        </div>
 
         <!-- コラボレーション機能 -->
         <div id="collab-section"
-            style="margin-top: 25px; padding: 20px; background: #f8f8f8; border-radius: 4px; display: none;">
+            style="margin-top: 25px; padding: 20px; background: #f8f8f8; border-radius: 4px; display: none; width: 85%; max-width: 500px;">
             <div id="collab-header" style="font-size: 13px; font-weight: bold; margin-bottom: 12px; color: #222;"></div>
             <div id="collab-message" style="font-size: 11px; color: #555; line-height: 1.6; margin-bottom: 15px;"></div>
 
@@ -648,14 +737,45 @@
             }
         }
 
-        // --- コラボレーション: 緯糸モード検出 ---
+        // --- コラボレーション: 緯糸モード検出 & VIP判定 ---
         let isWeftMode = false;
         let warpDataFromUrl = null;
+        let isVip = false;
+        let vipData = null;
 
-        (function detectWeftMode() {
+        // VIPリスト (簡易DB)
+        const VIP_LIST = {
+            "vip001": { name: "SOMA YAMADA", role: "Special Guest" },
+            "vip002": { name: "TEST GUEST A", role: "V.I.P." },
+            "vip003": { name: "TEST GUEST B", role: "V.I.P." }
+        };
+
+        (function detectMode() {
             const urlParams = new URLSearchParams(window.location.search);
+
+            // 1. VIP判定
+            const vipId = urlParams.get('vip');
+            if (vipId && VIP_LIST[vipId]) {
+                isVip = true;
+                vipData = VIP_LIST[vipId];
+                console.log('VIPモードで起動:', vipData);
+
+                // スタート画面の表示更新
+                const eventTitle = document.querySelector('#start-screen .event-title');
+                const eventDate = document.querySelector('#start-screen .event-date');
+
+                if (eventTitle) {
+                    eventTitle.innerHTML = `<span style="font-size: 0.6em; display:block; margin-bottom:5px; opacity:0.7;">WELCOME</span>${vipData.name}<br><span style="font-size: 0.5em; opacity: 0.8;">- ${vipData.role} -</span>`;
+                }
+                if (eventDate) {
+                    eventDate.style.borderTop = "none";
+                    eventDate.innerHTML = "YOUR EXCLUSIVE TICKET RESERVATION";
+                }
+            }
+
+            // 2. 緯糸モード判定 (VIPでない場合のみ有効)
             const warpParam = urlParams.get('warp');
-            if (warpParam) {
+            if (!isVip && warpParam) {
                 try {
                     const decoded = atob(warpParam);
                     warpDataFromUrl = JSON.parse(decoded);
@@ -1345,11 +1465,26 @@
             // --- データ計測 ---
             playData.totalDistance += speed * speedMultiplier;
             const currentSteer = isMobile ? touchSteerDir : (keyLeft ? -1 : (keyRight ? 1 : 0));
-            if (currentSteer !== 0 && lastSteerDir !== currentSteer) {
-                playData.steeringFlipCount++;
+
+            // ステアリング計測の改善（ヒステリシス付き）
+            const STEER_THRESHOLD = 0.2;
+
+            // 意図的な方向転換の検知
+            if (Math.abs(currentSteer) > STEER_THRESHOLD) {
+                if (playData.lastSignificantDir !== 0 && Math.sign(currentSteer) !== Math.sign(playData.lastSignificantDir)) {
+                    playData.steeringFlipCount++;
+                    playData.lastSignificantDir = currentSteer;
+                } else if (playData.lastSignificantDir === 0) {
+                    playData.lastSignificantDir = currentSteer;
+                }
             }
+
+            // 迷い度（Wandering）の計測: 蛇行の総量
+            if (speed > 100) {
+                steeringInputSum += Math.abs(currentSteer);
+            }
+
             lastSteerDir = currentSteer;
-            steeringInputSum += Math.abs(currentSteer);
             if (Math.random() < 0.05) playData.speedHistory.push(speed);
 
             // 字幕更新
@@ -1526,40 +1661,102 @@
 
             // パラメータ解析
             // パラメータ解析
-            const counts = playData.itemCounts;
-            // 最後に取得した色（6色）
-            const selectedPalette = lastCollectedColor;
+            // ---------------------------------------------------
+            // 1. 色の集計と決定 (Color Logic)
+            // ---------------------------------------------------
+            const sortedColors = Object.entries(playData.itemCounts)
+                .sort((a, b) => b[1] - a[1]) // 回数が多い順
+                .filter(entry => entry[1] > 0)
+                .map(entry => entry[0]);
 
+            // メインカラー: 最も多く取った色（なければ最後に取った色、それもなければモノクロ）
+            // ※「最後に取った色」より「多く取った色」の方が「執着」を表すため
+            let mainColor = sortedColors[0] || lastCollectedColor || 'monochrome';
 
+            // VIP用サブカラー
+            let subColor = sortedColors[1] || mainColor;
 
-            // パラメータ算出
-            const avgSteer = steeringInputSum / (playData.speedHistory.length || 1);
-            const steerScore = Math.min(1.0, avgSteer * 2.0);
+            // 結果画面での表示用に保存
+            const selectedPalette = mainColor;
 
+            // ---------------------------------------------------
+            // 2. スコア算出 (Score Logic)
+            // ---------------------------------------------------
+
+            // G (Greed): 執着度 (アイテム取得数)
+            // 0〜10個で判定。多すぎると真っ黒になるのでMAX10程度で正規化
+            const totalItems = Object.values(playData.itemCounts).reduce((a, b) => a + b, 0);
+            const greedScore = Math.min(1.0, totalItems / 10);
+
+            // S (Steer): 迷い度 (切り返し回数重視)
+            // Flip回数: 意図的な切り返し。5〜10回で十分「迷っている」とみなす
+            const flipScore = Math.min(1.0, playData.steeringFlipCount / 8);
+            // Wander: 入力総量。あくまで補助的（カーブ対応分も含むため）
+            const avgSteeringInput = steeringInputSum / (playData.speedHistory.length || 1);
+            const wanderScore = Math.min(1.0, avgSteeringInput * 2.0);
+
+            // 迷い度 = 切り返し(80%) + 蛇行量(20%)
+            const steerScore = (flipScore * 0.8) + (wanderScore * 0.2);
+
+            // R (Risk): リスク許容度 (衝突数)
+            // 0回=0.0, 5回以上=1.0
+            const crashScore = Math.min(1.0, playData.collisionCount * 0.2);
+
+            // Speed: 平均速度 (参考値として算出するが、生成パラメータへの影響は下げる)
             const avgSpeed = playData.speedHistory.reduce((a, b) => a + b, 0) / (playData.speedHistory.length || 1);
-            const speedScore = Math.min(1.0, avgSpeed / maxSpeed);
+            // const speedScore = Math.min(1.0, avgSpeed / maxSpeed); // 廃止
 
-            const crashScore = Math.min(1.0, playData.collisionCount * 0.15);
+            // ---------------------------------------------------
+            // 3. グラフィック生成パラメータ (Generation Params)
+            // ---------------------------------------------------
+            const seed = Math.random();
+
+            // Amp (振幅): S値（迷い）がそのまま波の大きさに
+            const warpAmpBase = 0.05 + steerScore * 0.5; // 0.05 ~ 0.55
+            const warpAmpRand = (seed * 0.2) - 0.1;
+            const finalWarpAmp = Math.max(0.02, warpAmpBase + warpAmpRand);
+
+            // Freq (周波数): S値が高い＝細かく震える
+            const warpFreqBase = 0.1 + steerScore * 0.6;
+            const warpFreqRand = (Math.random() * 0.4) - 0.2;
+            const finalWarpFreq = Math.max(0.1, warpFreqBase + warpFreqRand);
+
+            // Density (密度): Greed（執着）が高いほど密度が高くなる
+            // 欲深い＝目が詰まっている
+            const densityBase = 0.2 + greedScore * 0.6; // 0.2 ~ 0.8
+            const finalDensity = Math.min(0.9, densityBase + (Math.random() * 0.1));
+
+            // Style: R値（リスク）とS値（迷い）で決定
+            let styleType = 'classic';
+            if (crashScore > 0.5) {
+                styleType = 'glitch'; // 傷だらけ
+            } else if (steerScore > 0.5) {
+                styleType = 'organic'; // 迷いが多い＝有機的
+            } else {
+                // ランダムで少し混ぜる
+                if (Math.random() < 0.3) styleType = 'organic';
+            }
 
             const genParams = {
-                paletteId: selectedPalette,
-                warpAmp: 0.1 + steerScore * 0.3,   // 控えめに
-                warpFreq: 0.3 + steerScore * 0.2,  // 控えめに
-                density: 0.2 + speedScore * 0.3,   // 疑らしめに
-                noise: crashScore * 0.3,           // 控えめに
-                style: crashScore > 0.7 ? 'glitch' : (steerScore > 0.8 ? 'organic' : 'classic')
+                paletteId: mainColor,
+                warpAmp: finalWarpAmp,
+                warpFreq: finalWarpFreq,
+                density: finalDensity,
+                noise: crashScore * 0.6 + (styleType === 'glitch' ? 0.3 : 0),
+                style: styleType
             };
 
-            // --- 診断用データの集約 (For External AI) ---
-            // ユーザー要望: 迷い(Flip), 執着(Items), リスク(Collision), 色(Color), 相性
+            // ---------------------------------------------------
+            // 4. 診断用データ (Diagnosis Data)
+            // ---------------------------------------------------
             const diagnosisParams = {
-                steeringHesitation: playData.steeringFlipCount, // ハンドルの迷い（切り返し回数）
-                riskTolerance: playData.collisionCount,         // リスク許容度（衝突数）
-                itemGreediness: {                               // アイテムへの執着
-                    total: Object.values(playData.itemCounts).reduce((a, b) => a + b, 0),
+                steeringHesitation: playData.steeringFlipCount,
+                riskTolerance: playData.collisionCount,
+                itemGreediness: {
+                    total: totalItems,
                     details: playData.itemCounts
                 },
-                colorPreference: lastCollectedColor,            // 色
+                colorPreference: mainColor, // ここもTop1を使用
                 baseMetrics: {
                     avgSpeed: avgSpeed,
                     steerScore: steerScore,
@@ -1567,26 +1764,45 @@
                 }
             };
 
-            // 相性診断の準備（緯糸モード時）
-            if (isWeftMode && warpDataFromUrl) {
+            // 相性診断の準備
+            if (isVip) {
                 diagnosisParams.compatibility = {
-                    partnerWarp: warpDataFromUrl, // 相手（経糸）のパラメータ
-                    myWeft: genParams             // 自分（緯糸）のパラメータ
+                    partnerWarp: genParams,
+                    myWeft: genParams
                 };
-                console.log("Compatibility Data Ready:", diagnosisParams.compatibility);
+            } else if (isWeftMode && warpDataFromUrl) {
+                diagnosisParams.compatibility = {
+                    partnerWarp: warpDataFromUrl,
+                    myWeft: genParams
+                };
             }
 
-            console.log("Diagnosis Data Generated:", diagnosisParams);
-            // 将来的にこのdiagnosisParamsを診断APIに投げたり、画面に表示したりする
-            // ---------------------------------------------------
+            console.log("Diagnosis Data:", diagnosisParams);
 
-            // テキスタイル生成
-            // 緯糸モードの場合は経糸データをURLから取得し、自分のデータを緯糸として合成
+            // ---------------------------------------------------
+            // 5. テキスタイル生成実行
+            // ---------------------------------------------------
             let dataUrl;
-            if (isWeftMode && warpDataFromUrl) {
-                dataUrl = generateTextile(warpDataFromUrl, genParams);  // 経糸=URL, 緯糸=自分
+            if (isVip) {
+                // VIP: Top1色 x Top2色
+                console.log(`VIP Weaving: ${mainColor} x ${subColor}`);
+
+                // 経糸 (Main)
+                const warpP = JSON.parse(JSON.stringify(genParams));
+                warpP.paletteId = mainColor;
+
+                // 緯糸 (Sub)
+                const weftP = JSON.parse(JSON.stringify(genParams));
+                weftP.paletteId = subColor;
+
+                // 表示用テキスト更新
+                genParams.paletteId = (mainColor === subColor) ? mainColor.toUpperCase() : `${mainColor.toUpperCase()} × ${subColor.toUpperCase()}`;
+
+                dataUrl = generateTextile(warpP, weftP);
+            } else if (isWeftMode && warpDataFromUrl) {
+                dataUrl = generateTextile(warpDataFromUrl, genParams);
             } else {
-                dataUrl = generateTextile(genParams, null);  // 経糸のみ
+                dataUrl = generateTextile(genParams, null);
             }
 
             const imgEl = document.getElementById('material-image');
@@ -1594,11 +1810,15 @@
             imgEl.onload = () => {
                 document.getElementById('loading-text').style.display = 'none';
                 imgEl.style.display = 'block';
+
+                // 統合レポート生成 (New)
+                generateAnalysisReport(diagnosisParams, result);
+                document.getElementById('analysis-report').style.display = 'block';
+
                 document.getElementById('material-id').style.display = 'block';
-                document.getElementById('spec-info').style.display = 'block';
+                // 古い spec-info は使用しない
                 document.getElementById('share-buttons').style.display = 'flex';
                 document.getElementById('reserve-btn').style.display = 'block';
-                document.getElementById('data-explanation').style.display = 'block';
             };
 
             const date = new Date();
@@ -1643,49 +1863,39 @@
                 }
             }
 
-            // 接頭辞 (Prefix)
-            let prefix = "";
-            let prefixJp = "";
-            if (lastCollectedColor === 'red') { prefix = "BLEEDING "; prefixJp = "血を流す"; }
-            else if (lastCollectedColor === 'blue') { prefix = "COLD "; prefixJp = "冷徹な"; }
-            else if (lastCollectedColor === 'green') { prefix = "BIO "; prefixJp = "生物的な"; }
-            else if (lastCollectedColor === 'monochrome') { prefix = "NOIR "; prefixJp = "漆黒の"; }
-            else if (lastCollectedColor === 'orange') { prefix = "ACID "; prefixJp = "幻覚の"; }
-            else if (lastCollectedColor === 'purple') { prefix = "ROYAL "; prefixJp = "高貴な"; }
-
             // 表示更新
-            const styleName = genParams.style.toUpperCase();
-            const dens = Math.floor(genParams.density * 100);
+            // const styleName = genParams.style.toUpperCase();
+            // const dens = Math.floor(genParams.density * 100);
 
-            // 診断結果HTML構築
-            const diagnosisHtml = `
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
-                    <div style="font-size: 0.8em; opacity: 0.7; letter-spacing: 1px;">YOUR TEXTILE TYPE</div>
-                    <div style="font-family: 'DIN 2014', sans-serif; font-size: 1.4em; font-weight: 700; margin: 5px 0 0; color: #fff;">
-                        ${prefix}${result.nameEn}
-                    </div>
-                    <div style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.9em; margin-bottom: 8px;">
-                        ${prefixJp}${result.nameJp}
-                    </div>
-                    <div style="font-family: 'Noto Sans JP', sans-serif; font-size: 0.8em; opacity: 0.8; line-height: 1.5;">
-                        ${result.desc}
-                    </div>
-                </div>
-                <div style="margin-top: 15px; font-size: 0.7em; opacity: 0.5;">
-                    <span title="Steering Hesitation">S:${steer}</span> / 
-                    <span title="Risk Tolerance">R:${risk.toFixed(1)}</span> / 
-                    <span title="Item Greediness">G:${greed}</span>
-                </div>
-            `;
+            // VIPならタイトル変更
+            let resultTitle = `YOUR TEXTILE TYPE`;
+            if (isVip && vipData) {
+                resultTitle = `OFFICIAL TICKET FOR ${vipData.name}`;
+            }
 
-            document.getElementById('spec-info').innerHTML = `STYLE: ${styleName} / DENSITY: ${dens}% <br>PALETTE: ${genParams.paletteId.toUpperCase()} ${diagnosisHtml}`;
+            // 旧診断表示ロジック削除 (Combined Reportに統合済み)
 
             // コラボレーション機能
             const collabSection = document.getElementById('collab-section');
             const collabHeader = document.getElementById('collab-header');
             const collabMessage = document.getElementById('collab-message');
 
-            if (isWeftMode && warpDataFromUrl) {
+            // VIPの場合はコラボセクションをチケット表示エリアとして使う
+            if (isVip) {
+                collabSection.style.display = 'block';
+                collabSection.style.background = '#fff';
+                collabSection.style.border = '2px solid #000';
+                collabHeader.innerHTML = 'YOUR TICKET IS READY';
+                collabMessage.innerHTML = 'あなたの走りが、そのまま入場チケットになりました。<br>当日、この画面を受付でご提示ください。<br><br><small>※スクリーンショットを保存してください</small>';
+                document.getElementById('warp-mode-actions').style.display = 'none';
+                document.getElementById('weft-mode-result').style.display = 'none';
+
+                // 予約ボタンの文言変更
+                document.getElementById('reserve-btn').innerText = "SAVE TICKET (SCREENSHOT)";
+                document.getElementById('reserve-btn').onclick = function () {
+                    alert("この画面のスクリーンショットを保存してください");
+                };
+            } else if (isWeftMode && warpDataFromUrl) {
                 // 緯糸モード: 合成完了メッセージ
                 collabSection.style.display = 'block';
                 collabHeader.innerHTML = '布が完成しました！';
@@ -1744,16 +1954,121 @@
             return result;
         }
 
-        function getDiagnosisPrefix(color) {
-            let en = "";
-            let jp = "";
-            if (color === 'red') { en = "BLEEDING "; jp = "血を流す"; }
-            else if (color === 'blue') { en = "COLD "; jp = "冷徹な"; }
-            else if (color === 'green') { en = "BIO "; jp = "生物的な"; }
-            else if (color === 'monochrome') { en = "NOIR "; jp = "漆黒の"; }
-            else if (color === 'orange') { en = "ACID "; jp = "幻覚の"; }
-            else if (color === 'purple') { en = "ROYAL "; jp = "高貴な"; }
-            return { en, jp };
+
+
+        // --- レポート生成ロジック (Integrated Text Report) ---
+        function generateAnalysisReport(params, resultData) {
+            const reportDiv = document.getElementById('analysis-report');
+            if (!reportDiv) return;
+
+            const sScore = params.baseMetrics.steerScore;
+            const rScore = params.baseMetrics.crashScore;
+            const gTotal = params.itemGreediness.total;
+            const mainColor = params.colorPreference.toUpperCase();
+
+            // 文脈判定 (Context)
+            let subject = "経糸（タテイト）";
+            let product = "マテリアル";
+            let contextMsg = "";
+
+            if (isVip) {
+                subject = "布（テキスタイル）";
+                product = "この一枚";
+                contextMsg = "あなたの二面性が織りなした、完全な布です。";
+            } else if (isWeftMode && warpDataFromUrl) {
+                subject = "緯糸（ヨコイト）";
+                product = "コラボレーション";
+                contextMsg = "二人の糸が交差し、新たな布が生まれました。";
+            } else {
+                // 通常モード（経糸のみ）
+                subject = "経糸（タテイト）";
+                product = "素材";
+                contextMsg = "これはまだ片方の糸です。誰かに緯糸を織ってもらうことで布は完成します。";
+            }
+
+            // 1. Steering & Speed (Shape)
+            let shapeText = "";
+            const flipCount = params.steeringHesitation;
+            if (sScore > 0.5) {
+                shapeText = `頻繁な切り返し（Flip: ${flipCount}回）が記録されました。その心の揺れが、${subject}に激しい波打ちを与え、複雑に歪んだ形状を生み出しています。`;
+            } else if (sScore > 0.2) {
+                shapeText = `時折見せたハンドルの揺らぎ（Flip: ${flipCount}回）が、${subject}に有機的で柔らかなウェーブを描き出しました。`;
+            } else {
+                shapeText = `迷いのないハンドル操作（Flip: ${flipCount}回）で、スムーズに走り抜けました。そのため、${subject}は美しく真っ直ぐに伸び、凛とした表情を持っています。`;
+            }
+
+            // 2. Risk (Texture)
+            let textureText = "";
+            const collisionCount = Math.floor(params.riskTolerance);
+            if (rScore > 0.5) {
+                textureText = `度重なる衝突（Collision: ${collisionCount}回）を恐れぬ走りが、全体にノイズとグリッチ（傷跡）を刻み込みました。`;
+            } else if (rScore > 0.1) {
+                textureText = `攻めの走りによる接触（Collision: ${collisionCount}回）が、適度な荒々しさを質感に加えています。`;
+            } else {
+                textureText = `衝突を避けた安全運転により、傷のない滑らかな質感に仕上がっています。`;
+            }
+
+            // 3. Greed & Color (Density & Color)
+            let densityText = "";
+            let colorText = "";
+
+            // 色の名称変換 (簡易)
+            const colorMap = {
+                'RED': '赤', 'BLUE': '青', 'GREEN': '緑',
+                'ORANGE': 'オレンジ', 'PURPLE': '紫', 'MONOCHROME': '無彩色'
+            };
+            const colName = colorMap[mainColor] || mainColor;
+
+            if (gTotal >= 8) {
+                densityText = `多くの欲望（Items: ${gTotal}個）を求めた結果、目が詰まった重厚で高密度な仕上がりになりました。`;
+                colorText = `特に「${colName}」への執着が強く、その色が全体を支配しています。`;
+            } else if (gTotal >= 4) {
+                densityText = `適度な収集欲（Items: ${gTotal}個）により、バランスの取れた密度の${product}になっています。`;
+                colorText = `「${colName}」を基調とした、落ち着きのある配色です。`;
+            } else {
+                densityText = `収集を抑えた（Items: ${gTotal}個）ことで、非常に軽やかで透け感のある仕上がりになりました。`;
+                colorText = `「${colName}」が静かに主張する、ミニマルな構成です。`;
+            }
+
+            // HTML構築
+            const html = `
+                <div class="report-section">
+                    <div class="report-title">DRIVING ANALYSIS</div>
+                    <div class="report-text">
+                        「${shapeText}
+                        ${textureText}
+                        ${densityText}
+                        ${colorText}」
+                    </div>
+                    <div class="report-text" style="font-size: 11px; color:#666;">
+                        ${contextMsg}
+                    </div>
+                </div>
+
+                <div class="report-section" style="border-bottom: none;">
+                    <div class="report-title">MATERIAL DIAGNOSIS</div>
+                    <div class="report-text">
+                        繊維で言うなら、このマテリアルでしょう。
+                    </div>
+                    
+                    <div class="diagnosis-name-en">
+                        ${resultData.nameEn}
+                    </div>
+                    <div class="diagnosis-name-jp">
+                        ${resultData.nameJp}
+                    </div>
+                    <div class="diagnosis-desc">
+                        ${resultData.desc}
+                    </div>
+                    
+                    <div style="margin-top: 25px; font-size: 10px; color: #ccc; font-family: 'DIN 2014';">
+                        S:${(params.baseMetrics.steerScore).toFixed(2)} / R:${(params.baseMetrics.crashScore).toFixed(2)} / G:${gTotal}
+                    </div>
+                </div>
+            `;
+
+            reportDiv.innerHTML = html;
+            reportDiv.style.display = 'block';
         }
 
         // --- テキスタイル生成エンジン ---

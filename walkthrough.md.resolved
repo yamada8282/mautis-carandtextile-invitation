@@ -1,0 +1,43 @@
+# Walkthrough - VIP & Ticket Feature
+
+招待客（VIP）向けの特別機能と、30名分の招待客を管理・招待するためのツールを実装しました。
+
+## Features Implemented
+
+### 1. VIP Mode & Auto-Complete Ticket
+招待客には特別な体験を提供するため、以下の機能を実装しました。
+- **ID識別**: URL末尾の `?vip={id}` でゲストを識別。
+- **Welcome Display**: スタート画面にゲストのお名前を表示。
+- **Self-Weaving**: 通常は誰かとコラボしないと完成しない「布」が、VIPは**1人プレイで完成**します（自分の走りを経糸・緯糸の両方に使用）。
+- **Ticket Generation**: 結果画面がそのまま「入場チケット」としてデザインされます。
+
+### 2. General Guest Flow (Comparison)
+- **一般客**: URLパラメータなし。
+- **結果**: 「経糸」のみが生成されます。
+- **Action**: 「招待リンクを作成」して友人に送り、友人がプレイすることで布が完成します（コラボレーション）。
+
+### 3. VIP Link Generator Tool
+管理用ツール [vip_link_generator.html](file:///Users/somayamada/Desktop/%E3%82%A4%E3%83%B3%E3%83%93%E3%83%86%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3/vip_link_generator.html) を作成しました。
+- ブラウザで開くだけで、[index.html](file:///Users/somayamada/Desktop/%E3%82%A4%E3%83%B3%E3%83%93%E3%83%86%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3/index.html) に登録されたVIPリストに基づき、個別の招待リンクを一括生成します。
+- "Copy Link" ボタンで簡単にコピーできます。
+
+## How to Verify
+
+### 1. VIP体験の確認
+以下のURL（ダミーID）でアクセスしてください。
+- `https://.../index.html?vip=vip001` (SOMA YAMADA)
+- スタート画面に名前が出ること、プレイ後にチケットが完成することを確認。
+
+### 2. 一般客体験の確認
+パラメータなしでアクセスしてください。
+- `https://.../index.html`
+- プレイ後に「経糸だけです」と表示され、シェアを促されることを確認。
+
+### 3. VIPリストの編集手順
+1. [index.html](file:///Users/somayamada/Desktop/%E3%82%A4%E3%83%B3%E3%83%93%E3%83%86%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3/index.html) 内の `const VIP_LIST` を編集してゲストを追加・変更します。
+2. [vip_link_generator.html](file:///Users/somayamada/Desktop/%E3%82%A4%E3%83%B3%E3%83%93%E3%83%86%E3%83%BC%E3%82%B7%E3%83%A7%E3%83%B3/vip_link_generator.html) 内のJSONエリアにも同じ内容を貼り付けます（または手動で同期）。
+3. ツールを開いてリンクを再発行します。
+
+## Next Steps
+- 本番環境（Vercel）へのデプロイ
+- 実際の招待客リスト（30名分）の流し込み
