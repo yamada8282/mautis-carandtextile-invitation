@@ -612,8 +612,8 @@
 
     <!-- 結果画面 -->
     <div id="result-screen">
-        <div class="header" style="margin-top: 30px;">MATERIAL ANALYSIS REPORT</div>
-        <div style="font-size: 10px; color: #666; margin-bottom: 20px;">素材分析レポート</div>
+        <div class="header" style="margin-top: 30px;">DRIVING RESULT</div>
+        <div style="font-size: 10px; color: #666; margin-bottom: 20px;">走行解析結果</div>
 
         <div class="loading" id="loading-text">ANALYZING MATERIAL DATA...</div>
 
@@ -626,45 +626,124 @@
         <!-- 統合レポートエリア -->
         <div id="analysis-report" style="display: none;"></div>
 
-        <!-- シェアボタン -->
-        <div class="share-buttons" id="share-buttons" style="display: none; margin-bottom: 40px;">
-            <button class="share-btn" onclick="shareToInstagram()">SHARE DATA</button>
-            <button class="share-btn" onclick="shareToTwitter()">Twitter</button>
-            <button class="share-btn" onclick="shareToLINE()">LINE</button>
-        </div>
+
 
         <!-- 予約ボタン（またはチケット保存ボタン） -->
         <button class="reserve-btn" id="reserve-btn" style="display: none;" onclick="goToReservation()">RESERVE
             TICKET</button>
 
-        <!-- コラボレーション機能 -->
+        <!-- コラボレーション・招待エリア (統合版) -->
         <div id="collab-section"
-            style="margin-top: 25px; padding: 20px; background: #f8f8f8; border-radius: 4px; display: none; width: 85%; max-width: 500px;">
-            <div id="collab-header" style="font-size: 13px; font-weight: bold; margin-bottom: 12px; color: #222;"></div>
-            <div id="collab-message" style="font-size: 11px; color: #555; line-height: 1.6; margin-bottom: 15px;"></div>
+            style="margin-top: 25px; padding: 25px; background: #f8f8f8; border-radius: 4px; display: none; width: 85%; max-width: 500px; text-align: center;">
 
-            <!-- 経糸モード用 -->
+            <!-- A. 経糸モード (一般客・完了時) -->
             <div id="warp-mode-actions" style="display: none;">
-                <button id="invite-btn" class="share-btn" onclick="generateInviteLink()"
-                    style="background: #333; color: #fff; padding: 12px 24px; font-size: 12px;">
-                    招待リンクを作成する
-                </button>
-                <div id="invite-link-container" style="display: none; margin-top: 15px;">
-                    <div style="font-size: 10px; color: #666; margin-bottom: 5px;">下のリンクを相手に送ってください：</div>
-                    <input type="text" id="invite-link-input" readonly
-                        style="width: 100%; padding: 10px; font-size: 10px; border: 1px solid #ccc; border-radius: 3px; margin-bottom: 10px; background: #fff;">
-                    <button class="share-btn" onclick="copyInviteLink()" style="width: 100%;">リンクをコピー</button>
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #222;">
+                    COMPLETE THE TEXTILE
+                </div>
+                <div style="font-size: 11px; color: #555; line-height: 1.6; margin-bottom: 20px;">
+                    この布はまだ未完成（経糸のみ）です。<br>
+                    招待リンクを送って、誰かに「緯糸」を織ってもらいましょう。<br>
+                    <div
+                        style="border: 1px solid #000; color: #000; padding: 10px; margin-top: 12px; font-weight: bold; font-size: 10px;">
+                        SPECIAL REWARD<br>
+                        ペアで完成した画面を会場で見せると<br>
+                        限定ステッカーをプレゼント
+                    </div>
+                </div>
+
+                <!-- Invite Share Buttons -->
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                    <button class="share-btn" onclick="shareInviteToTwitter()"
+                        style="background: #000; color: #fff; border: none;">
+                        Post to X (Invite Weaver)
+                    </button>
+                    <button class="share-btn" onclick="shareInviteToLINE()"
+                        style="background: #06c755; color: #fff; border: none;">
+                        Send via LINE
+                    </button>
+                </div>
+
+                <!-- Manual Copy -->
+                <div style="margin-top: 15px;">
+                    <button onclick="copyInviteLink()"
+                        style="background:none; border:none; text-decoration:underline; font-size:10px; color:#666; cursor:pointer;">
+                        Copy Invite Link
+                    </button>
+                    <input type="text" id="invite-link-input" readonly style="position:absolute; left:-9999px;">
                 </div>
             </div>
 
-            <!-- 緯糸モード用 -->
-            <div id="weft-mode-result" style="display: none;">
-                <div style="font-size: 11px; color: #333; padding: 10px; background: #e8f5e9; border-radius: 3px;">
-                    この布には2人の走りが織り込まれています。<br>
-                    <strong>経糸</strong>: 招待者の走り<br>
-                    <strong>緯糸</strong>: あなたの走り
+            <!-- B. 緯糸モード (コラボ客・完了時) -->
+            <div id="weft-mode-result"
+                style="display: none; border-top: 1px dashed #ccc; padding-top: 20px; margin-top: 15px;">
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #222;">
+                    TEXTILE COMPLETED
+                </div>
+                <div style="font-size: 11px; color: #333; margin-bottom: 15px;">
+                    二人の糸が交差し、世界に一つの布が完成しました。<br>
+                    <span style="font-size:0.9em; color:#666;">経糸: HOST / 緯糸: YOU</span>
+                    <div
+                        style="border: 1px solid #000; color: #000; padding: 10px; margin-top: 12px; font-weight: bold; font-size: 10px;">
+                        SPECIAL REWARD<br>
+                        この画面をイベント当日の受付で提示し、<br>
+                        限定ステッカーを受け取ってください。
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <!-- 1. Save Image -->
+                    <button class="share-btn" onclick="shareToInstagram()"
+                        style="width: 100%; background: #000; color: #fff; border: none;">
+                        1. SAVE SCREENSHOT
+                    </button>
+
+                    <!-- 2. Report to LINE -->
+                    <button class="share-btn" onclick="reportToHostLINE()"
+                        style="width: 100%; background: #06c755; color: #fff; border: none;">
+                        2. REPORT TO HOST (LINE)
+                    </button>
+                    <div style="font-size:10px; color:#888; margin-bottom: 5px;">
+                        ※画像を保存してLINEで送ってください
+                    </div>
+
+                    <!-- 3. Twitter (Optional) -->
+                    <button class="share-btn" onclick="shareToTwitter()"
+                        style="width: 100%; background: #fff; color: #333; border: 1px solid #ddd;">
+                        Post to X
+                    </button>
                 </div>
             </div>
+
+            <!-- C. VIPモード -->
+            <div id="vip-mode-result"
+                style="display: none; border-top: 1px solid #000; padding-top: 20px; margin-top: 15px;">
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #000;">
+                    YOUR TICKET IS READY
+                </div>
+                <div style="font-size: 11px; color: #333; margin-bottom: 20px; line-height: 1.6;">
+                    あなただけのテキスタイルが完成しました。<br>
+                    これが当日の入場チケットとなります。<br>
+                    <span style="color:#666; font-size:10px;">※受付にてこの画面（または保存した画像）をご提示ください。</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <button class="share-btn" onclick="shareToInstagram()"
+                        style="width: 100%; background: #000; color: #fff; border: none;">
+                        SAVE TICKET
+                    </button>
+                    <button class="share-btn" onclick="shareAttendanceToTwitter()"
+                        style="width: 100%; background: #fff; color: #333; border: 1px solid #000;">
+                        SHARE ATTENDANCE
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 共通イベント情報フッター -->
+        <div
+            style="margin: 30px 0; font-family: 'DIN 2014', sans-serif; font-size: 10px; color: #888; text-align: center; letter-spacing: 2px; border-top: 1px solid #eee; padding-top: 15px; width: 80%;">
+            EXHIBITION: 2026.02.28 SAT / MATERIAL INDUSTRY LAB
         </div>
 
         <!-- テキスタイル生成用 高解像度Canvas (不可視) -->
@@ -1814,11 +1893,28 @@
                 // 統合レポート生成 (New)
                 generateAnalysisReport(diagnosisParams, result);
                 document.getElementById('analysis-report').style.display = 'block';
-
                 document.getElementById('material-id').style.display = 'block';
-                // 古い spec-info は使用しない
-                document.getElementById('share-buttons').style.display = 'flex';
                 document.getElementById('reserve-btn').style.display = 'block';
+
+                // コラボエリア表示制御
+                const collabSection = document.getElementById('collab-section');
+                collabSection.style.display = 'block';
+
+                // 全てのセクションを一旦隠す
+                document.getElementById('warp-mode-actions').style.display = 'none';
+                document.getElementById('weft-mode-result').style.display = 'none';
+                document.getElementById('vip-mode-result').style.display = 'none';
+
+                if (isVip) {
+                    // C. VIPモード
+                    document.getElementById('vip-mode-result').style.display = 'block';
+                } else if (isWeftMode && warpDataFromUrl) {
+                    // B. 緯糸モード (コラボ完了)
+                    document.getElementById('weft-mode-result').style.display = 'block';
+                } else {
+                    // A. 経糸モード (一般客 → 招待へ)
+                    document.getElementById('warp-mode-actions').style.display = 'block';
+                }
             };
 
             const date = new Date();
@@ -1875,42 +1971,8 @@
 
             // 旧診断表示ロジック削除 (Combined Reportに統合済み)
 
-            // コラボレーション機能
-            const collabSection = document.getElementById('collab-section');
-            const collabHeader = document.getElementById('collab-header');
-            const collabMessage = document.getElementById('collab-message');
-
-            // VIPの場合はコラボセクションをチケット表示エリアとして使う
-            if (isVip) {
-                collabSection.style.display = 'block';
-                collabSection.style.background = '#fff';
-                collabSection.style.border = '2px solid #000';
-                collabHeader.innerHTML = 'YOUR TICKET IS READY';
-                collabMessage.innerHTML = 'あなたの走りが、そのまま入場チケットになりました。<br>当日、この画面を受付でご提示ください。<br><br><small>※スクリーンショットを保存してください</small>';
-                document.getElementById('warp-mode-actions').style.display = 'none';
-                document.getElementById('weft-mode-result').style.display = 'none';
-
-                // 予約ボタンの文言変更
-                document.getElementById('reserve-btn').innerText = "SAVE TICKET (SCREENSHOT)";
-                document.getElementById('reserve-btn').onclick = function () {
-                    alert("この画面のスクリーンショットを保存してください");
-                };
-            } else if (isWeftMode && warpDataFromUrl) {
-                // 緯糸モード: 合成完了メッセージ
-                collabSection.style.display = 'block';
-                collabHeader.innerHTML = '布が完成しました！';
-                collabMessage.innerHTML = '2人の走りが交差し、1枚の布になりました。<br>経糸（招待者）と緯糸（あなた）が織り成す、世界に1つだけのテキスタイルです。';
-                document.getElementById('weft-mode-result').style.display = 'block';
-            } else {
-                // 経糸モード: 招待リンク作成を促す
-                collabSection.style.display = 'block';
-                collabHeader.innerHTML = 'これはまだ「経糸」だけです';
-                collabMessage.innerHTML = '1人では糸、2人で布になります。<br>誰かに「緯糸」を織ってもらい、布を完成させましょう。';
-                document.getElementById('warp-mode-actions').style.display = 'block';
-
-                // genParamsをグローバルに保存（招待リンク生成用）
-                window.currentWarpData = genParams;
-            }
+            // genParamsをグローバルに保存（招待リンク生成用）
+            window.currentWarpData = genParams;
         }
 
         // --- 診断ロジック関数 (Extracted) ---
@@ -1966,24 +2028,20 @@
             const gTotal = params.itemGreediness.total;
             const mainColor = params.colorPreference.toUpperCase();
 
-            // 文脈判定 (Context)
+            // 文脈判定 (Context) - シンプルに役割のみ定義
             let subject = "経糸（タテイト）";
             let product = "マテリアル";
-            let contextMsg = "";
 
             if (isVip) {
                 subject = "布（テキスタイル）";
                 product = "この一枚";
-                contextMsg = "あなたの二面性が織りなした、完全な布です。";
             } else if (isWeftMode && warpDataFromUrl) {
                 subject = "緯糸（ヨコイト）";
                 product = "コラボレーション";
-                contextMsg = "二人の糸が交差し、新たな布が生まれました。";
             } else {
                 // 通常モード（経糸のみ）
                 subject = "経糸（タテイト）";
                 product = "素材";
-                contextMsg = "これはまだ片方の糸です。誰かに緯糸を織ってもらうことで布は完成します。";
             }
 
             // 1. Steering & Speed (Shape)
@@ -2033,15 +2091,12 @@
             // HTML構築
             const html = `
                 <div class="report-section">
-                    <div class="report-title">DRIVING ANALYSIS</div>
+                    <div class="report-title">DRIVING RESULT</div>
                     <div class="report-text">
-                        「${shapeText}
+                        ${shapeText}
                         ${textureText}
                         ${densityText}
-                        ${colorText}」
-                    </div>
-                    <div class="report-text" style="font-size: 11px; color:#666;">
-                        ${contextMsg}
+                        ${colorText}
                     </div>
                 </div>
 
@@ -2179,61 +2234,81 @@
         }
 
         // --- 共有機能 ---
+        // --- 共有機能 (招待・コラボ完了) ---
+
+        // 1. 招待リンク生成ヘルパー (Warpモード用)
+        function getInviteUrl() {
+            if (!window.currentWarpData) return window.location.href; // データなければトップへ
+            const jsonStr = JSON.stringify(window.currentWarpData);
+            const base64 = btoa(jsonStr);
+            const baseUrl = window.location.origin + window.location.pathname;
+            return `${baseUrl}?warp=${base64}`;
+        }
+
+        // 2. Twitter 招待シェア (経糸モード完了時)
+        function shareInviteToTwitter() {
+            const url = getInviteUrl();
+            const text = `I wove the warp. Someone please weave the weft to complete the fabric.\n\n私が「経糸」を織りました。誰か「緯糸」を織って布を完成させてください。\n#IndustrialRun\n`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+        }
+
+        // 3. LINE 招待シェア (経糸モード完了時)
+        function shareInviteToLINE() {
+            const url = getInviteUrl();
+            const text = `I wove the warp. Join to weave the weft.\n私が「経糸」を織りました。リンクを開いて「緯糸」を織ってください。`;
+            window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        // 3-2. LINE 報告 (緯糸モード完了時)
+        function reportToHostLINE() {
+            const text = `The Weft is woven. The fabric is complete.\n\n緯糸（ヨコイト）を織りました。完成した布の画像を送ります。`;
+            // 画像は送れないのでテキストのみシェア画面を開く
+            window.open(`https://social-plugins.line.me/lineit/share?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        // 3-3. VIP 出席シェア
+        function shareAttendanceToTwitter() {
+            const id = document.getElementById('material-id').innerText;
+            const text = `I am attending the exhibition with my exclusive textile invite.\nTicket ID: ${id}\n\n繊維産業研究報告会に参加します。\n#IndustrialRun #20260228`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
+        }
+
+        // 4. 通常シェア (完了画像 or VIP)
         function shareToInstagram() {
             const imageUrl = document.getElementById('material-image').src;
-            // ダウンロードトリガーなど
             const a = document.createElement('a');
             a.href = imageUrl;
             a.download = 'industrial_run_textile.jpg';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            alert("画像を保存しました。Instagram等でシェアしてください。");
         }
+
         function shareToTwitter() {
-            window.open(`https://twitter.com/intent/tweet?text=Industrial Run Material Generated: ${document.getElementById('material-id').innerText}`, '_blank');
-        }
-        function shareToLINE() {
-            window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(location.href)}`, '_blank');
-        }
-        function goToReservation() {
-            window.open('https://example.com/reserve', '_blank');
+            // 単純な結果シェア
+            const text = `Industrial Run Material Generated: ${document.getElementById('material-id').innerText}\n#IndustrialRun`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
         }
 
-        // --- 招待リンク機能 ---
-        function generateInviteLink() {
-            if (!window.currentWarpData) {
-                alert('経糸データがありません');
-                return;
-            }
-
-            // データをJSON化してBase64エンコード
-            const jsonStr = JSON.stringify(window.currentWarpData);
-            const base64 = btoa(jsonStr);
-
-            // 現在のURLのベースを取得
-            const baseUrl = window.location.origin + window.location.pathname;
-            const inviteUrl = `${baseUrl}?warp=${base64}`;
-
-            // UIに表示
-            const container = document.getElementById('invite-link-container');
-            const input = document.getElementById('invite-link-input');
-            input.value = inviteUrl;
-            container.style.display = 'block';
-            document.getElementById('invite-btn').style.display = 'none';
-        }
-
+        // 5. 手動コピー (Fallback)
         function copyInviteLink() {
+            const url = getInviteUrl();
             const input = document.getElementById('invite-link-input');
+            input.value = url;
             input.select();
             input.setSelectionRange(0, 99999);
-
-            navigator.clipboard.writeText(input.value).then(() => {
-                alert('リンクをコピーしました！\\n相手に送って緯糸を織ってもらいましょう。');
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Invite Link Copied!');
             }).catch(() => {
-                alert('コピーに失敗しました。手動でコピーしてください。');
+                alert('Copy failed. Please select and copy manually.');
             });
         }
+
+        function goToReservation() {
+            window.open('https://mautextileindustrylab.peatix.com/', '_blank');
+        }
+
+        // 古い関数（generateInviteLink）は廃止
 
         init();
 
