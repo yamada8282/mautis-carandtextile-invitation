@@ -986,6 +986,24 @@
         const obstacles = [];
         const items = []; // カラーアイテム
 
+        // 音声オブジェクト (グローバル事前生成)
+        const audioAssets = {
+            bgm: new Audio(),
+            motor: new Audio(),
+            narration: new Audio()
+        };
+        // 設定
+        audioAssets.bgm.loop = true;
+        audioAssets.bgm.volume = 0.5;
+        audioAssets.motor.loop = true;
+        audioAssets.motor.volume = 0.6;
+        audioAssets.narration.volume = 1.0;
+
+        // グローバル参照へ紐付け (互換性維持)
+        window.bgm = audioAssets.bgm;
+        window.motor = audioAssets.motor;
+        window.narration = audioAssets.narration;
+
         function initObstacles() {
             obstacles.length = 0;
             // 障害物をランダムに配置
@@ -1103,25 +1121,30 @@
                 setTimeout(() => loader.style.display = 'none', 500);
             });
 
-            // スタート画面のボタン - プリロード完了後に機能
+
+
+            // BGM設定 (プリロードで既にロード済み)
+
+            // スタート画面のボタン - シンプルかつ堅牢にリトライ再生
             document.getElementById('init-button').addEventListener('click', () => {
-                // ユーザーインタラクションと同時に再生開始
-                const bgmPromise = window.bgm.play();
-                const motorPromise = window.motor.play();
+                const playAudio = (audio) => {
+                    if (audio.readyState >= 3) { // HAVE_FUTURE_DATA
+                        audio.play().catch(e => console.warn('Play failed', e));
+                    } else {
+                        // 万が一ロードがまだならロードしてから再生
+                        audio.load();
+                        audio.play().catch(e => console.warn('Force load play failed', e));
+                    }
+                };
 
-                // 両方の再生試行を待つ（エラーでも進むがログは出す）
-                Promise.allSettled([bgmPromise, motorPromise]).then((results) => {
-                    results.forEach((res, i) => {
-                        if (res.status === 'rejected') console.warn('Audio play failed:', i, res.reason);
-                    });
+                playAudio(window.bgm);
+                playAudio(window.motor);
 
-                    // ナレーションは少し遅れて再生
-                    setTimeout(() => {
-                        window.narration.play().catch(e => console.log('Narration play failed:', e));
-                    }, 2000);
+                setTimeout(() => {
+                    playAudio(window.narration);
+                }, 2000);
 
-                    startGameTransition();
-                });
+                startGameTransition();
             });
 
             initRoad();
@@ -1146,21 +1169,14 @@
                 imagesToLoad.push({ img: img, src: obstacleSources[i] });
             });
 
-            // 音声ファイル定義
-            // グローバルオブジェクトをここで初期化・ロードしてキャッシュとデコードを済ませる
-            window.bgm = new Audio('bgm.wav');
-            window.bgm.loop = true;
-            window.bgm.volume = 0.5;
+            // 音声ソース定義
+            const audioSources = [
+                { audio: window.bgm, src: 'bgm.wav' },
+                { audio: window.motor, src: 'car_bgm.wav' },
+                { audio: window.narration, src: 'ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3' }
+            ];
 
-            window.motor = new Audio('car_bgm.wav');
-            window.motor.loop = true;
-            window.motor.volume = 0.6;
-
-            window.narration = new Audio('ElevenLabs_2026-02-03T08_23_36_Relaxing Rachel - Calm & Soothing_pvc_sp75_s100_sb75_se27_b_m2.mp3');
-            window.narration.volume = 1.0;
-
-            const audioObjects = [window.bgm, window.motor, window.narration];
-            const totalAssets = imagesToLoad.length + audioObjects.length;
+            const totalAssets = imagesToLoad.length + audioSources.length;
 
             const updateProgress = () => {
                 loadedCount++;
@@ -1176,33 +1192,25 @@
                 });
             });
 
-            // 音声のプリロード（canplaythroughを待つ）
-            const audioPromises = audioObjects.map(audio => {
+            // 音声のプリロード (canplaythrough待機)
+            const audioPromises = audioSources.map(item => {
                 return new Promise(resolve => {
-                    // すでにロード済みの場合
-                    if (audio.readyState >= 4) {
+                    const onReady = () => {
                         updateProgress();
-                        resolve();
-                        return;
-                    }
-
-                    const onLoaded = () => {
-                        updateProgress();
-                        audio.removeEventListener('canplaythrough', onLoaded);
-                        audio.removeEventListener('error', onError);
+                        item.audio.removeEventListener('canplaythrough', onReady);
                         resolve();
                     };
-                    const onError = (e) => {
-                        console.warn('Audio preload error:', audio.src, e);
-                        updateProgress();
-                        audio.removeEventListener('canplaythrough', onLoaded);
-                        audio.removeEventListener('error', onError);
-                        resolve(); // エラーでも進める
-                    };
 
-                    audio.addEventListener('canplaythrough', onLoaded);
-                    audio.addEventListener('error', onError);
-                    audio.load(); // 明示的にロード
+                    item.audio.addEventListener('canplaythrough', onReady);
+                    item.audio.addEventListener('error', (e) => {
+                        console.warn('Audio load error:', item.src, e);
+                        updateProgress(); // エラーでも進行させる
+                        resolve();
+                    });
+
+                    // ファイルセット・ロード開始
+                    item.audio.src = item.src;
+                    item.audio.load();
                 });
             });
 
@@ -1210,11 +1218,17 @@
         }
 
         function startGameTransition() {
-            const glitchOverlay = document.getElementById('glitch-overlay');
-            glitchOverlay.classList.add('active');
+            // グリッチエフェクト（バババッてなるやつ）は削除してフェードアウトにする
+            // const glitchOverlay = document.getElementById('glitch-overlay');
+            // glitchOverlay.classList.add('active');
+
+            const startScreen = document.getElementById('start-screen');
+            startScreen.style.transition = 'opacity 0.5s';
+            startScreen.style.opacity = '0';
 
             setTimeout(() => {
-                document.getElementById('start-screen').classList.add('hidden');
+                startScreen.classList.add('hidden');
+                startScreen.style.display = 'none'; // 確実に非表示
                 startGame();
             }, 500);
         }
