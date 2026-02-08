@@ -715,6 +715,14 @@
         <!-- マテリアルID -->
         <div class="material-id" id="material-id" style="display: none;"></div>
 
+        <!-- VIP用チケットホルダー情報 -->
+        <div id="vip-ticket-holder" style="display: none; width: 100%; text-align: center; margin: 10px 0 25px 0;">
+            <div style="font-size: 9px; color: #888; letter-spacing: 0.2em; margin-bottom: 4px;">TICKET HOLDER</div>
+            <div id="vip-holder-name"
+                style="font-size: 18px; font-weight: bold; color: #000; letter-spacing: 0.05em; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 10px 0; width: 80%; margin: 0 auto;">
+            </div>
+        </div>
+
         <!-- 統合レポートエリア -->
         <div id="analysis-report" style="display: none;"></div>
 
@@ -2325,6 +2333,18 @@
                 if (isVip) {
                     // C. VIPモード
                     document.getElementById('vip-mode-result').style.display = 'block';
+
+                    // ヘッダータイトルの更新 (セレクタ修正)
+                    const titleEl = document.querySelector('#result-screen .header');
+                    if (titleEl) titleEl.innerHTML = `OFFICIAL TICKET`;
+
+                    // チケットホルダー情報の追加
+                    const holderArea = document.getElementById('vip-ticket-holder');
+                    const nameEl = document.getElementById('vip-holder-name');
+                    if (holderArea && nameEl && window.vipData) {
+                        nameEl.innerText = window.vipData.name;
+                        holderArea.style.display = 'block';
+                    }
                 } else if (isWeftMode && warpDataFromUrl) {
                     // B. 緯糸モード (コラボ完了)
                     document.getElementById('weft-mode-result').style.display = 'block';
@@ -2380,11 +2400,7 @@
             // const styleName = genParams.style.toUpperCase();
             // const dens = Math.floor(genParams.density * 100);
 
-            // VIPならタイトル変更
-            let resultTitle = `YOUR TEXTILE TYPE`;
-            if (isVip && window.vipData) {
-                resultTitle = `OFFICIAL TICKET FOR ${window.vipData.name}`;
-            }
+
 
             // 旧診断表示ロジック削除 (Combined Reportに統合済み)
 
@@ -2940,8 +2956,17 @@
                         const vipRes = document.getElementById('vip-mode-result');
                         if (vipRes) vipRes.style.display = 'block';
 
-                        const titleEl = document.querySelector('#result-screen h2');
-                        if (titleEl) titleEl.innerHTML = `OFFICIAL TICKET FOR ${window.vipData.name}`;
+                        // ヘッダータイトルの更新 (セレクタ修正)
+                        const titleEl = document.querySelector('#result-screen .header');
+                        if (titleEl) titleEl.innerHTML = `OFFICIAL TICKET`;
+
+                        // チケットホルダー情報の追加
+                        const holderArea = document.getElementById('vip-ticket-holder');
+                        const nameEl = document.getElementById('vip-holder-name');
+                        if (holderArea && nameEl) {
+                            nameEl.innerText = window.vipData.name;
+                            holderArea.style.display = 'block';
+                        }
                     } else if (window.isWeftMode) {
                         const weftRes = document.getElementById('weft-mode-result');
                         if (weftRes) weftRes.style.display = 'block';
