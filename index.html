@@ -944,6 +944,24 @@
         // vip_list.js で window.VIP_LIST が定義されています
         const VIP_LIST = window.VIP_LIST || {};
 
+        // --- ストレージキー取得ヘルパー ---
+        function getStorageKey() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const vipId = urlParams.get('vip');
+            const warpParam = urlParams.get('warp');
+
+            if (vipId && VIP_LIST[vipId]) {
+                return `mautil_result_${vipId}`;
+            } else if (warpParam) {
+                // 招待リンク(緯糸モード)の場合、リンクごとにキーを分ける (先頭12文字をハッシュ代わりに)
+                const hash = warpParam.substring(0, 12).replace(/[^a-zA-Z0-9]/g, '');
+                return `mautil_result_weft_${hash}`;
+            } else {
+                // 通常のホストプレイ
+                return `mautil_result_guest`;
+            }
+        }
+
         function restoreFromStorage() {
             const urlParams = new URLSearchParams(window.location.search);
 
@@ -990,7 +1008,7 @@
             }
 
             // 3. 過去の保存データ確認 (Persistence)
-            const storageKey = window.isVip ? `mautil_result_${vipId}` : `mautil_result_guest`;
+            const storageKey = getStorageKey();
             const savedDataJson = localStorage.getItem(storageKey);
 
             if (savedDataJson) {
@@ -2409,12 +2427,7 @@
             window.diagnosisParams = diagnosisParams; // パラメータ詳細も保存
 
             // --- ローカルストレージに保存 (Persistence) ---
-            const storageKey = window.isVip ? `mautil_result_${window.vipData ? Object.keys(VIP_LIST).find(k => VIP_LIST[k] === window.vipData) : 'vip_unknown'}` : `mautil_result_guest`;
-
-            // VIP IDを特定 (少し強引だが現在のvipDataから逆引き、またはURLから取得すべきだが、ここではURLパラメータ優先)
-            const urlParams = new URLSearchParams(window.location.search);
-            const currentVipId = urlParams.get('vip');
-            const finalKey = window.isVip && currentVipId ? `mautil_result_${currentVipId}` : `mautil_result_guest`;
+            const finalKey = getStorageKey();
 
             let currentMode = 'warp';
             if (window.isVip) currentMode = 'vip';
@@ -2810,10 +2823,7 @@
         // 6. リセット (RETRY)
         function resetUserData() {
             if (confirm("現在の結果データを削除して、最初からやり直しますか？\n(This will delete your woven textile data.)")) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const vipId = urlParams.get('vip');
-                // VIPか一般かでキーを判断
-                const storageKey = vipId ? `mautil_result_${vipId}` : `mautil_result_guest`;
+                const storageKey = getStorageKey();
                 localStorage.removeItem(storageKey);
                 window.location.reload();
             }
