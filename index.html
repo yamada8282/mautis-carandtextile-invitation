@@ -935,9 +935,9 @@
         }
 
         // --- コラボレーション: 緯糸モード検出 & VIP判定 ---
-        let isWeftMode = false;
-        let warpDataFromUrl = null;
-        let isVip = false;
+        window.isWeftMode = false;
+        window.warpDataFromUrl = null;
+        window.isVip = false;
         window.vipData = null;
 
         // VIPリスト (外部ファイルから読み込み)
@@ -950,7 +950,7 @@
             // 1. VIP判定
             const vipId = urlParams.get('vip');
             if (vipId && VIP_LIST[vipId]) {
-                isVip = true;
+                window.isVip = true;
                 window.vipData = VIP_LIST[vipId];
                 console.log('VIPモードで起動:', window.vipData);
 
@@ -969,15 +969,15 @@
 
             // 2. 緯糸モード判定 (VIPでない場合のみ有効)
             const warpParam = urlParams.get('warp');
-            if (!isVip && warpParam) {
+            if (!window.isVip && warpParam) {
                 try {
                     const decoded = atob(warpParam);
                     const parsed = JSON.parse(decoded);
                     // 復元（短縮キー対応）
-                    warpDataFromUrl = decompressWarpData(parsed);
+                    window.warpDataFromUrl = decompressWarpData(parsed);
 
-                    isWeftMode = true;
-                    console.log('緯糸モードで起動:', warpDataFromUrl);
+                    window.isWeftMode = true;
+                    console.log('緯糸モードで起動:', window.warpDataFromUrl);
 
                     // スタート画面に緯糸モード表示
                     const weftInfo = document.getElementById('weft-mode-info');
@@ -990,7 +990,7 @@
             }
 
             // 3. 過去の保存データ確認 (Persistence)
-            const storageKey = isVip ? `mautil_result_${vipId}` : `mautil_result_guest`;
+            const storageKey = window.isVip ? `mautil_result_${vipId}` : `mautil_result_guest`;
             const savedDataJson = localStorage.getItem(storageKey);
 
             if (savedDataJson) {
@@ -1021,9 +1021,12 @@
                     if (savedData.vipData) window.vipData = savedData.vipData;
                     if (savedData.vipColors) window.vipColors = savedData.vipColors;
 
-                    // モード情報の復元 (念のため)
+                    // モード情報の復元 (重要: ここでフラグを立てることでリロード復元を担保)
                     if (savedData.playMode === 'weft') {
-                        isWeftMode = true;
+                        window.isWeftMode = true;
+                    }
+                    if (savedData.playMode === 'vip') {
+                        window.isVip = true;
                     }
 
                     // 起動時即リザルト画面へ
@@ -2270,14 +2273,14 @@
             };
 
             // 相性診断の準備
-            if (isVip) {
+            if (window.isVip) {
                 diagnosisParams.compatibility = {
                     partnerWarp: genParams,
                     myWeft: genParams
                 };
-            } else if (isWeftMode && warpDataFromUrl) {
+            } else if (window.isWeftMode && window.warpDataFromUrl) {
                 diagnosisParams.compatibility = {
-                    partnerWarp: warpDataFromUrl,
+                    partnerWarp: window.warpDataFromUrl,
                     myWeft: genParams
                 };
             }
@@ -2288,7 +2291,7 @@
             // 5. テキスタイル生成実行
             // ---------------------------------------------------
             let dataUrl;
-            if (isVip) {
+            if (window.isVip) {
                 // VIP: Top1色 x Top2色
                 console.log(`VIP Weaving: ${mainColor} x ${subColor}`);
 
@@ -2300,11 +2303,9 @@
                 const weftP = JSON.parse(JSON.stringify(genParams));
                 weftP.paletteId = subColor;
 
-
-
                 dataUrl = generateTextile(warpP, weftP);
-            } else if (isWeftMode && warpDataFromUrl) {
-                dataUrl = generateTextile(warpDataFromUrl, genParams);
+            } else if (window.isWeftMode && window.warpDataFromUrl) {
+                dataUrl = generateTextile(window.warpDataFromUrl, genParams);
             } else {
                 dataUrl = generateTextile(genParams, null);
             }
@@ -2330,7 +2331,7 @@
                 document.getElementById('weft-mode-result').style.display = 'none';
                 document.getElementById('vip-mode-result').style.display = 'none';
 
-                if (isVip) {
+                if (window.isVip) {
                     // C. VIPモード
                     document.getElementById('vip-mode-result').style.display = 'block';
 
@@ -2345,7 +2346,7 @@
                         nameEl.innerText = window.vipData.name;
                         holderArea.style.display = 'block';
                     }
-                } else if (isWeftMode && warpDataFromUrl) {
+                } else if (window.isWeftMode && window.warpDataFromUrl) {
                     // B. 緯糸モード (コラボ完了)
                     document.getElementById('weft-mode-result').style.display = 'block';
                 } else {
@@ -2400,8 +2401,6 @@
             // const styleName = genParams.style.toUpperCase();
             // const dens = Math.floor(genParams.density * 100);
 
-
-
             // 旧診断表示ロジック削除 (Combined Reportに統合済み)
 
             // genParamsをグローバルに保存（招待リンク生成用）
@@ -2410,23 +2409,23 @@
             window.diagnosisParams = diagnosisParams; // パラメータ詳細も保存
 
             // --- ローカルストレージに保存 (Persistence) ---
-            const storageKey = isVip ? `mautil_result_${window.vipData ? Object.keys(VIP_LIST).find(k => VIP_LIST[k] === window.vipData) : 'vip_unknown'}` : `mautil_result_guest`;
+            const storageKey = window.isVip ? `mautil_result_${window.vipData ? Object.keys(VIP_LIST).find(k => VIP_LIST[k] === window.vipData) : 'vip_unknown'}` : `mautil_result_guest`;
 
             // VIP IDを特定 (少し強引だが現在のvipDataから逆引き、またはURLから取得すべきだが、ここではURLパラメータ優先)
             const urlParams = new URLSearchParams(window.location.search);
             const currentVipId = urlParams.get('vip');
-            const finalKey = isVip && currentVipId ? `mautil_result_${currentVipId}` : `mautil_result_guest`;
+            const finalKey = window.isVip && currentVipId ? `mautil_result_${currentVipId}` : `mautil_result_guest`;
 
             let currentMode = 'warp';
-            if (isVip) currentMode = 'vip';
-            else if (isWeftMode) currentMode = 'weft';
+            if (window.isVip) currentMode = 'vip';
+            else if (window.isWeftMode) currentMode = 'weft';
 
             const saveData = {
                 genParams: genParams,
                 diagnosisResults: result,
                 diagnosisParams: diagnosisParams, // 詳細レポート用に追加
                 vipData: window.vipData,
-                vipColors: isVip ? { main: mainColor, sub: subColor } : null,
+                vipColors: window.isVip ? { main: mainColor, sub: subColor } : null,
                 playMode: currentMode, // 復元判定用モード
                 timestamp: Date.now()
             };
@@ -2491,13 +2490,16 @@
             // 文脈判定 (Context) - シンプルに役割のみ定義
             let subject = "経糸（タテイト）";
             let product = "マテリアル";
+            let compatibilityText = "";
 
-            if (isVip) {
+            if (window.isVip) {
                 subject = "布（テキスタイル）";
                 product = "この一枚";
-            } else if (isWeftMode && warpDataFromUrl) {
+                compatibilityText = `YOUR OWN WEAVING`;
+            } else if (window.isWeftMode && window.warpDataFromUrl) {
                 subject = "緯糸（ヨコイト）";
                 product = "コラボレーション";
+                compatibilityText = `COLLABORATION: HOST & YOU`;
             } else {
                 // 通常モード（経糸のみ）
                 subject = "経糸（タテイト）";
