@@ -450,7 +450,7 @@
             margin-top: 15px;
             opacity: 0.6;
             letter-spacing: 1px;
-            cursor: pointer;
+            cursor: default;
             transition: opacity 0.3s;
             font-family: 'DIN 2014', sans-serif;
         }
@@ -520,7 +520,7 @@
         /* TAP TO START */
         #tap-to-start {
             position: fixed;
-            top: 50%;
+            top: 35%;
             left: 50%;
             transform: translate(-50%, -50%);
             font-family: 'DIN 2014', sans-serif;
@@ -609,7 +609,7 @@
 
         <button class="init-button" id="init-button">START</button>
         <div id="start-hint" style="font-size: 10px; color: #666; margin-top: 10px;">タップしてゲームを始める</div>
-        <div id="start-audio-indicator" onclick="toggleAudio()">( SOUND ON )</div>
+        <div id="start-audio-indicator">( SOUND RECOMMENDED )</div>
     </div>
 
     <div id="scanlines"></div>
@@ -630,7 +630,7 @@
 
     <!-- 操作ヒント -->
     <div id="control-hint"
-        style="display: none; position: fixed; bottom: 50%; left: 0; right: 0; pointer-events: none; z-index: 50;">
+        style="display: none; position: fixed; bottom: 60%; left: 0; right: 0; pointer-events: none; z-index: 50;">
         <div style="display: flex; justify-content: center; align-items: center; gap: 80px; opacity: 0.7;">
             <div id="hint-left"
                 style="font-size: 60px; font-weight: 100; color: #333; animation: hintPulse 1.5s ease-in-out infinite;">
@@ -944,7 +944,10 @@
             if (!isVip && warpParam) {
                 try {
                     const decoded = atob(warpParam);
-                    warpDataFromUrl = JSON.parse(decoded);
+                    const parsed = JSON.parse(decoded);
+                    // 復元（短縮キー対応）
+                    warpDataFromUrl = decompressWarpData(parsed);
+
                     isWeftMode = true;
                     console.log('緯糸モードで起動:', warpDataFromUrl);
 
@@ -1475,7 +1478,7 @@
                 setTimeout(() => {
                     hint.style.opacity = '0';
                     setTimeout(() => { hint.style.display = 'none'; }, 500);
-                }, 1500);
+                }, 4000); // 1500から4000(4秒)に延長
             }
         }
 
@@ -1702,31 +1705,11 @@
                     carColorHue = filter.hue;
                     carColorSaturate = filter.saturate;
 
-                    // 取得演出
-                    const flash = document.createElement('div');
-                    flash.style.position = 'fixed';
-                    flash.style.top = '0';
-                    flash.style.left = '0';
-                    flash.style.width = '100vw';
-                    flash.style.height = '100vh';
-                    flash.style.background = glowCode;
-                    flash.style.pointerEvents = 'none';
-                    flash.style.zIndex = '999';
-                    flash.style.transition = 'opacity 0.2s';
-                    document.body.appendChild(flash);
-
                     try {
                         const originalRate = window.motor.playbackRate;
                         window.motor.playbackRate = 2.0;
                         setTimeout(() => window.motor.playbackRate = originalRate, 150);
                     } catch (e) { }
-
-                    requestAnimationFrame(() => {
-                        flash.style.opacity = '0';
-                        setTimeout(() => {
-                            if (flash.parentNode) document.body.removeChild(flash);
-                        }, 200);
-                    });
                 }
             });
 
@@ -2590,11 +2573,43 @@
         // --- 共有機能 ---
         // --- 共有機能 (招待・コラボ完了) ---
 
+        // --- URL圧縮ヘルパー ---
+        function compressWarpData(data) {
+            // キー短縮と数値丸め
+            return {
+                c: data.paletteId,
+                a: parseFloat(data.warpAmp.toFixed(3)),
+                f: parseFloat(data.warpFreq.toFixed(3)),
+                d: parseFloat(data.density.toFixed(3)),
+                n: parseFloat(data.noise.toFixed(3)),
+                s: data.style
+            };
+        }
+
+        function decompressWarpData(data) {
+            // 短縮キーがある場合は復元、なければそのまま（互換性）
+            if (data.c !== undefined) {
+                return {
+                    paletteId: data.c,
+                    warpAmp: data.a,
+                    warpFreq: data.f,
+                    density: data.d,
+                    noise: data.n,
+                    style: data.s
+                };
+            }
+            return data;
+        }
+
         // 1. 招待リンク生成ヘルパー (Warpモード用)
         function getInviteUrl() {
             if (!window.currentWarpData) return window.location.href; // データなければトップへ
-            const jsonStr = JSON.stringify(window.currentWarpData);
+
+            // 圧縮してJSON化
+            const compressed = compressWarpData(window.currentWarpData);
+            const jsonStr = JSON.stringify(compressed);
             const base64 = btoa(jsonStr);
+
             const baseUrl = window.location.origin + window.location.pathname;
             return `${baseUrl}?warp=${base64}`;
         }
