@@ -784,22 +784,25 @@
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                    <!-- 1. Save Image -->
-                    <button class="share-btn" onclick="shareToInstagram()"
-                        style="width: 100%; background: #000; color: #fff; border: none;">
-                        1. SAVE SCREENSHOT
-                    </button>
-
-                    <!-- 2. Report to LINE -->
-                    <button class="share-btn" onclick="reportToHostLINE()"
-                        style="width: 100%; background: #06c755; color: #fff; border: none;">
-                        2. REPORT TO HOST (LINE)
-                    </button>
-                    <div style="font-size:10px; color:#888; margin-bottom: 5px;">
-                        ※画像を保存してLINEで送ってください
+                    <!-- Screenshot Instruction -->
+                    <div
+                        style="width: 100%; text-align: center; border: 2px solid #000; padding: 15px; box-sizing: border-box; background: #fff; margin-bottom: 5px;">
+                        <div style="font-size: 11px; font-weight: bold; letter-spacing: 0.1em;">SCREENSHOT THIS SCREEN
+                        </div>
+                        <div style="font-size: 9px; color: #666; margin-top: 5px; line-height: 1.4;">
+                            チケット情報を含めたこの画面全体を<br>
+                            スクリーンショットで保存してください。
+                        </div>
                     </div>
 
-                    <!-- 3. Twitter (Optional) -->
+                    <button class="share-btn" onclick="reportToHostLINE()"
+                        style="width: 100%; background: #06c755; color: #fff; border: none;">
+                        REPORT TO HOST (LINE)
+                    </button>
+                    <div style="font-size:10px; color:#888; margin-bottom: 5px;">
+                        ※スクリーンショットをLINEで送ってください
+                    </div>
+
                     <button class="share-btn" onclick="shareToTwitter()"
                         style="width: 100%; background: #fff; color: #333; border: 1px solid #ddd;">
                         Post to X
@@ -816,16 +819,28 @@
                 <div style="font-size: 11px; color: #333; margin-bottom: 20px; line-height: 1.6;">
                     あなただけのテキスタイルが完成しました。<br>
                     これが当日の入場チケットとなります。<br>
-                    <span style="color:#666; font-size:10px;">※受付にてこの画面（または保存した画像）をご提示ください。</span>
+                    <span style="color:#666; font-size:10px;">※受付にてこの画面のスクリーンショットをご提示ください。</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                    <button class="share-btn" onclick="shareToInstagram()"
-                        style="width: 100%; background: #000; color: #fff; border: none;">
-                        SAVE TICKET
-                    </button>
+                    <!-- Screenshot Instruction -->
+                    <div
+                        style="width: 100%; text-align: center; border: 2px solid #000; padding: 15px; box-sizing: border-box; background: #fff; margin-bottom: 5px;">
+                        <div style="font-size: 11px; font-weight: bold; letter-spacing: 0.1em;">SCREENSHOT THIS SCREEN
+                        </div>
+                        <div style="font-size: 9px; color: #666; margin-top: 5px; line-height: 1.4;">
+                            お名前とテキスタイルが表示された<br>
+                            この画面全体を保存してください。
+                        </div>
+                    </div>
+
                     <button class="share-btn" onclick="shareAttendanceToTwitter()"
                         style="width: 100%; background: #fff; color: #333; border: 1px solid #000;">
                         SHARE ATTENDANCE
+                    </button>
+
+                    <button onclick="shareToInstagram()"
+                        style="background:none; border:none; text-decoration:underline; font-size:9px; color:#999; cursor:pointer; margin-top: 5px;">
+                        Download Textile Graphic Only
                     </button>
                 </div>
             </div>
