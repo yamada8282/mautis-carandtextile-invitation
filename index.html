@@ -2982,6 +2982,9 @@
                     } else if (window.isWeftMode) {
                         const weftRes = document.getElementById('weft-mode-result');
                         if (weftRes) weftRes.style.display = 'block';
+
+                        const resBtn = document.getElementById('reserve-btn');
+                        if (resBtn) resBtn.style.display = 'block';
                     } else {
                         const warpActions = document.getElementById('warp-mode-actions');
                         if (warpActions) warpActions.style.display = 'block';
