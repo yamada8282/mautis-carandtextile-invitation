@@ -84,15 +84,10 @@
         <label><strong>base URL:</strong></label><br>
         <input type="text" id="baseUrl" value="https://mautis-carandtextile-invitation.vercel.app/"
             style="width: 100%; padding: 8px; box-sizing: border-box; margin-bottom: 10px;">
-
-        <label><strong>VIP List (JSON format):</strong> <small>※index.htmlと同じ内容にしてください</small></label><br>
-        <textarea id="vipJson">
-{
-    "vip001": { "name": "SOMA YAMADA", "role": "Special Guest" },
-    "vip002": { "name": "TEST GUEST A", "role": "V.I.P." },
-    "vip003": { "name": "TEST GUEST B", "role": "V.I.P." }
-}</textarea>
-        <button onclick="generateTable()" style="margin-top: 10px; padding: 8px 16px;">Generate Table</button>
+        <p style="font-size: 0.9em; color: #666;">
+            ※リストの変更は <code>vip_list.js</code> を直接編集してください。<br>
+            編集後、このページをリロードすると反映されます。
+        </p>
     </div>
 
     <table id="resultTable">
@@ -109,16 +104,22 @@
         </tbody>
     </table>
 
+    <script src="vip_list.js"></script>
     <script>
         function generateTable() {
             const baseUrl = document.getElementById('baseUrl').value.trim();
-            const vipJsonStr = document.getElementById('vipJson').value;
             const tableBody = document.querySelector('#resultTable tbody');
             tableBody.innerHTML = '';
 
-            try {
-                const vipList = JSON.parse(vipJsonStr);
+            // vip_list.js から読み込まれたデータ
+            const vipList = window.VIP_LIST;
 
+            if (!vipList) {
+                alert("vip_list.js が読み込めませんでした。同じフォルダに置いてください。");
+                return;
+            }
+
+            try {
                 for (const [id, data] of Object.entries(vipList)) {
                     // ?vip=ID
                     const link = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}vip=${id}`;
@@ -134,7 +135,7 @@
                 }
 
             } catch (e) {
-                alert("JSONパースエラー: " + e.message);
+                alert("エラー: " + e.message);
             }
         }
 
