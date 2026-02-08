@@ -329,23 +329,45 @@
             color: #fff;
         }
 
-        #result-screen .reserve-btn {
+        #result-screen .reserve-btn,
+        #result-screen .calendar-btn {
+            display: block;
+            width: 80%;
+            max-width: 300px;
             padding: 15px 30px;
+            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 0 auto;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        #result-screen .reserve-btn {
             background: #000;
             border: none;
             color: #fff;
-            cursor: pointer;
-            font-family: 'DIN 2014', 'Barlow', 'Noto Sans JP', sans-serif;
-            font-size: 16px;
             margin-top: 20px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            transition: all 0.3s;
+        }
+
+        #result-screen .calendar-btn {
+            background: #fff;
+            border: 1px solid #000;
+            color: #000;
+            margin-top: 10px;
         }
 
         #result-screen .reserve-btn:hover {
-            background: #333;
-            color: #fff;
+            opacity: 0.8;
+            transform: translateY(-2px);
+        }
+
+        #result-screen .calendar-btn:hover {
+            background: #f8f8f8;
+            transform: translateY(-2px);
         }
 
         #result-screen {
@@ -731,46 +753,38 @@
         <!-- 予約ボタン（またはチケット保存ボタン） -->
         <button class="reserve-btn" id="reserve-btn" style="display: none;" onclick="goToReservation()">RESERVE
             TICKET</button>
-        <button id="calendar-btn"
-            style="display: none; margin-top: 8px; background: none; border: 1px solid #ddd; color: #888; padding: 10px 20px; font-size: 9px; letter-spacing: 0.1em; cursor: pointer; width: 160px; font-family: 'DIN 2014', sans-serif;"
-            onclick="addToCalendar()">ADD TO CALENDAR</button>
+        <button class="calendar-btn" id="calendar-btn" style="display: none;" onclick="addToCalendar()">ADD TO
+            CALENDAR</button>
 
         <!-- コラボレーション・招待エリア (統合版) -->
         <div id="collab-section"
-            style="margin-top: 25px; padding: 25px; background: #f8f8f8; border-radius: 4px; display: none; width: 85%; max-width: 500px; text-align: center;">
+            style="margin-top: 25px; padding: 25px; border-top: 1px solid #eee; display: none; width: 90%; max-width: 500px; text-align: center;">
 
             <!-- A. 経糸モード (一般客・完了時) -->
             <div id="warp-mode-actions" style="display: none;">
-                <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #222;">
+                <div
+                    style="font-size: 13px; font-weight: bold; margin-bottom: 12px; color: #000; letter-spacing: 0.1em;">
                     COMPLETE THE TEXTILE
                 </div>
-                <div style="font-size: 11px; color: #555; line-height: 1.6; margin-bottom: 20px;">
+                <div style="font-size: 11px; color: #555; line-height: 1.7; margin-bottom: 25px;">
                     この布はまだ未完成（経糸のみ）です。<br>
-                    招待リンクを送って、誰かに「緯糸」を織ってもらいましょう。<br>
-                    <div
-                        style="border: 1px solid #000; color: #000; padding: 10px; margin-top: 12px; font-weight: bold; font-size: 10px;">
-                        SPECIAL REWARD<br>
-                        ペアで完成した画面を会場で見せると<br>
-                        限定ステッカーをプレゼント
-                    </div>
+                    誰かにリンクを送って、「緯糸」を織ってもらいましょう。<br><br>
+                    ペアでテキスタイルを完成させた方には、<br>
+                    Webコンテンツ参加特典をプレゼントいたします。
                 </div>
 
                 <!-- Invite Share Buttons -->
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
                     <button class="share-btn" onclick="shareInviteToTwitter()"
-                        style="background: #000; color: #fff; border: none;">
-                        Post to X (Invite Weaver)
+                        style="width: 100%; max-width: 300px; background: #000; color: #fff; border: none; padding: 12px;">
+                        Invite a Partner (X)
                     </button>
                     <button class="share-btn" onclick="shareInviteToLINE()"
-                        style="background: #06c755; color: #fff; border: none;">
-                        Send via LINE
+                        style="width: 100%; max-width: 300px; background: #06c755; color: #fff; border: none; padding: 12px;">
+                        Invite a Partner (LINE)
                     </button>
-                </div>
-
-                <!-- Manual Copy -->
-                <div style="margin-top: 15px;">
                     <button onclick="copyInviteLink()"
-                        style="background:none; border:none; text-decoration:underline; font-size:10px; color:#666; cursor:pointer;">
+                        style="background:none; border:none; text-decoration:underline; font-size:10px; color:#999; cursor:pointer; margin-top: 5px;">
                         Copy Invite Link
                     </button>
                     <input type="text" id="invite-link-input" readonly style="position:absolute; left:-9999px;">
@@ -778,77 +792,57 @@
             </div>
 
             <!-- B. 緯糸モード (コラボ客・完了時) -->
-            <div id="weft-mode-result"
-                style="display: none; border-top: 1px dashed #ccc; padding-top: 20px; margin-top: 15px;">
-                <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #222;">
+            <div id="weft-mode-result" style="display: none;">
+                <div
+                    style="font-size: 13px; font-weight: bold; margin-bottom: 12px; color: #000; letter-spacing: 0.1em;">
                     TEXTILE COMPLETED
                 </div>
-                <div style="font-size: 11px; color: #333; margin-bottom: 15px;">
+                <div style="font-size: 11px; color: #333; line-height: 1.7; margin-bottom: 25px;">
                     二人の糸が交差し、世界に一つの布が完成しました。<br>
-                    <span style="font-size:0.9em; color:#666;">経糸: HOST / 緯糸: YOU</span>
-                    <div
-                        style="border: 1px solid #000; color: #000; padding: 10px; margin-top: 12px; font-weight: bold; font-size: 10px;">
-                        SPECIAL REWARD<br>
-                        この画面をイベント当日の受付で提示し、<br>
-                        限定ステッカーを受け取ってください。
-                    </div>
+                    <span style="font-size:0.9em; color:#666;">経糸: HOST / 緯糸: YOU</span><br><br>
+                    ページ上部のテキスタイル画像付近をスクリーンショットなどで保存し、当日受付にて提示してください。<br>
+                    Webコンテンツ参加特典をプレゼントいたします。
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                    <!-- Screenshot Instruction -->
-                    <div
-                        style="width: 100%; text-align: center; border: 2px solid #000; padding: 15px; box-sizing: border-box; background: #fff; margin-bottom: 5px;">
-                        <div style="font-size: 11px; font-weight: bold; letter-spacing: 0.1em;">SCREENSHOT THIS SCREEN
-                        </div>
-                        <div style="font-size: 9px; color: #666; margin-top: 5px; line-height: 1.4;">
-                            チケット情報を含めたこの画面全体を<br>
-                            スクリーンショットで保存してください。
-                        </div>
-                    </div>
-
                     <button class="share-btn" onclick="reportToHostLINE()"
-                        style="width: 100%; background: #06c755; color: #fff; border: none;">
-                        REPORT TO HOST (LINE)
+                        style="width: 100%; max-width: 300px; background: #06c755; color: #fff; border: none; padding: 12px;">
+                        Share with Partner (LINE)
                     </button>
-                    <div style="font-size:10px; color:#888; margin-bottom: 5px;">
-                        ※スクリーンショットをLINEで送ってください
+                    <div style="font-size:9px; color:#999; margin-top: -5px;">
+                        ※保存した画像をLINEで送ってください
                     </div>
-
                     <button class="share-btn" onclick="shareToTwitter()"
-                        style="width: 100%; background: #fff; color: #333; border: 1px solid #ddd;">
-                        Post to X
+                        style="width: 100%; max-width: 300px; background: #fff; color: #333; border: 1px solid #ddd; padding: 12px;">
+                        Share on X
                     </button>
                 </div>
             </div>
 
             <!-- C. VIPモード -->
-            <div id="vip-mode-result"
-                style="display: none; border-top: 1px solid #000; padding-top: 20px; margin-top: 15px;">
-                <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px; color: #000;">
+            <div id="vip-mode-result" style="display: none;">
+                <div
+                    style="font-size: 13px; font-weight: bold; margin-bottom: 12px; color: #000; letter-spacing: 0.1em;">
                     YOUR TICKET IS READY
                 </div>
-                <div style="font-size: 11px; color: #333; margin-bottom: 20px; line-height: 1.6;">
+                <div style="font-size: 11px; color: #333; line-height: 1.7; margin-bottom: 25px;">
                     あなただけのテキスタイルが完成しました。<br>
-                    これが当日の入場チケットとなります。<br>
-                    <span style="color:#666; font-size:10px;">※受付にてこの画面のスクリーンショットをご提示ください。</span>
+                    この画面が当日の入場チケットとなります。<br>
+                    招待客の皆様は事前予約の必要はございません。当日はお名前、もしくはページ上部のテキスタイル画像・お名前付近をスクリーンショットなどで保存し、受付にてご提示ください。<br><br>
+                    <span style="font-size: 0.9em; color: #555;">
+                        ※もしご都合が合わず、ご来場が難しい場合は、お手数ですが各SNSやメール等で主催までご一報いただけますと幸いです。
+                    </span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                    <!-- Screenshot Instruction -->
-                    <div
-                        style="width: 100%; text-align: center; border: 2px solid #000; padding: 15px; box-sizing: border-box; background: #fff; margin-bottom: 5px;">
-                        <div style="font-size: 11px; font-weight: bold; letter-spacing: 0.1em;">SCREENSHOT THIS SCREEN
-                        </div>
-                        <div style="font-size: 9px; color: #666; margin-top: 5px; line-height: 1.4;">
-                            お名前とテキスタイルが表示された<br>
-                            この画面全体を保存してください。
-                        </div>
-                    </div>
-
+                    <!-- VIP専用カレンダー登録ボタン（シェアボタンと同じUI） -->
+                    <button class="share-btn" onclick="addToCalendar()"
+                        style="width: 100%; max-width: 300px; background: #fff; color: #000; border: 1px solid #000; padding: 12px;">
+                        ADD TO CALENDAR
+                    </button>
                     <button class="share-btn" onclick="shareAttendanceToTwitter()"
-                        style="width: 100%; background: #fff; color: #333; border: 1px solid #000;">
+                        style="width: 100%; max-width: 300px; background: #fff; color: #333; border: 1px solid #000; padding: 12px;">
                         SHARE ATTENDANCE
                     </button>
-
                     <button onclick="shareToInstagram()"
                         style="background:none; border:none; text-decoration:underline; font-size:9px; color:#999; cursor:pointer; margin-top: 5px;">
                         Download Textile Graphic Only
@@ -875,6 +869,8 @@
             <!-- Event Concept -->
             <div style="margin-bottom: 40px;">
                 <h3 style="font-size: 16px; margin-bottom: 20px; letter-spacing: 0.1em;">EVENT INFORMATION</h3>
+                <img src="メインビジュアルSNS用-01のコピー.png"
+                    style="width: 100%; height: auto; margin-bottom: 25px; border-radius: 2px;" alt="Event Main Visual">
                 <div style="font-size: 14px; font-weight: bold; margin-bottom: 15px;">第一回 繊維産業研究報告会 -車と繊維-</div>
                 <p style="font-size: 11px; line-height: 1.8; color: #333; margin-bottom: 15px;">
                     繊維には、物語があります。<br>
@@ -920,11 +916,12 @@
             <div style="margin-bottom: 40px; font-size: 10px; line-height: 1.7; color: #666;">
                 <div style="margin-bottom: 25px;">
                     <div style="font-weight: bold; color: #000; margin-bottom: 8px;">繊維産業研究会について</div>
-                    武蔵野美術大学を拠点とする、繊維産業に関する研究実験機関。「繊維」を社会や産業を構成する「基盤」として捉え直し、異なる領域の技術と視点を交差させながら、産業の新しい可能性を発見していきます。
+                    私たちは、武蔵野美術大学を拠点とする、繊維産業に関する研究実験機関です。「繊維（Textile）」を、単なる衣服の素材としてではなく、社会や産業を構成するひとつの「基盤(infrastructure)」として捉え直すこと。素材・社会・産業への「接触(contact)」を起点に、美大生特有の視点で新たな文脈を探していきます。ファッション、舞台、インテリア、プロダクト、工芸、映像──
+                    異なる領域の技術と視点を交差させながら、私たちは産業の新しい可能性を発見していきます。
                 </div>
                 <div style="margin-bottom: 25px;">
                     <div style="font-weight: bold; color: #000; margin-bottom: 8px;">トヨタ紡織 RE:TERRACEについて</div>
-                    自動車用シート・内装を生産するトヨタ紡織が手掛けるアップサイクルブランド。生産工程で生じる廃棄予定の繊維素材を新たな製品としてよみがえらせる取組を行っています。
+                    RE:TERRACEは、自動車用シート・内装を生産するトヨタ紡織が手掛けるアップサイクルブランド。生産工程で生じる廃棄予定の繊維素材を新たな製品としてよみがえらせる取組を行っています。本イベントでは、RE:TERRACEを通じて提供された素材を用い、研究・展示・表現の実験を行います。
                 </div>
             </div>
 
@@ -2415,8 +2412,12 @@
                 generateAnalysisReport(diagnosisParams, result);
                 document.getElementById('analysis-report').style.display = 'block';
                 document.getElementById('material-id').style.display = 'block';
-                document.getElementById('reserve-btn').style.display = 'block';
-                document.getElementById('calendar-btn').style.display = 'block';
+                if (!window.isVip) {
+                    document.getElementById('reserve-btn').style.display = 'block';
+                    document.getElementById('calendar-btn').style.display = 'block';
+                } else {
+                    document.getElementById('calendar-btn').style.display = 'none';
+                }
 
                 // コラボエリア表示制御
                 const collabSection = document.getElementById('collab-section');
@@ -3057,6 +3058,10 @@
                     if (window.vipData) { // isVip変数はグローバルだが念のためwindow.vipData確認
                         const vipRes = document.getElementById('vip-mode-result');
                         if (vipRes) vipRes.style.display = 'block';
+
+                        // センターのカレンダーボタンはVIPでは非表示（VIP専用エリア内のボタンを使用）
+                        const centralCalBtn = document.getElementById('calendar-btn');
+                        if (centralCalBtn) centralCalBtn.style.display = 'none';
 
                         // ヘッダータイトルの更新 (セレクタ修正)
                         const titleEl = document.querySelector('#result-screen .header');
