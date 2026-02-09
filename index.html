@@ -6,19 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>第一回 繊維産業研究報告会 -車と繊維-</title>
     <meta name="description" content="繊維産業研究会による初の研究成果発表会。自動車用繊維素材を用いた作品展示とファッションショーのご案内。">
-
-    <!-- Open Graph Protocol (OGP) -->
-    <meta property="og:title" content="第一回 繊維産業研究報告会 -車と繊維-">
-    <meta property="og:description" content="繊維産業研究会による初の研究成果発表会。自動車用繊維素材を用いた作品展示とファッションショーのご案内。">
-    <meta property="og:image" content="https://2026-invitation.mau-til.com/main_visual.png">
-    <meta property="og:url" content="https://2026-invitation.mau-til.com/">
-    <meta property="og:type" content="website">
-
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="第一回 繊維産業研究報告会 -車と繊維-">
-    <meta name="twitter:description" content="繊維産業研究会による初の研究成果発表会。自動車用繊維素材を用いた作品展示とファッションショーのご案内。">
-    <meta name="twitter:image" content="https://2026-invitation.mau-til.com/main_visual.png">
     <!-- Google Fonts: Noto Sans JP and Barlow (as alternative to DIN) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1117,6 +1104,9 @@
                 window.vipData = VIP_LIST[vipId];
                 console.log('VIPモードで起動:', window.vipData);
 
+                // ブラウザタイトル更新
+                document.title = `INVITATION FOR ${window.vipData.name} | 繊維産業研究報告会`;
+
                 // スタート画面の表示更新
                 const eventTitle = document.querySelector('#start-screen .event-title');
                 const eventDate = document.querySelector('#start-screen .event-date');
@@ -1141,6 +1131,9 @@
 
                     window.isWeftMode = true;
                     console.log('緯糸モードで起動:', window.warpDataFromUrl);
+
+                    // ブラウザタイトル更新
+                    document.title = "YOUR TEXTILE INVITATION | 繊維産業研究報告会";
 
                     // スタート画面に緯糸モード表示
                     const weftInfo = document.getElementById('weft-mode-info');
@@ -1187,9 +1180,13 @@
                     // モード情報の復元 (重要: ここでフラグを立てることでリロード復元を担保)
                     if (savedData.playMode === 'weft') {
                         window.isWeftMode = true;
+                        document.title = "YOUR TEXTILE | 繊維産業研究報告会";
                     }
                     if (savedData.playMode === 'vip') {
                         window.isVip = true;
+                        if (window.vipData) {
+                            document.title = `INVITATION FOR ${window.vipData.name} | 繊維産業研究報告会`;
+                        }
                     }
 
                     // 起動時即リザルト画面へ
@@ -2916,20 +2913,20 @@
         // 2. Twitter 招待シェア (経糸モード完了時)
         function shareInviteToTwitter() {
             const url = getInviteUrl();
-            const text = `I wove the warp. Someone please weave the weft to complete the fabric.\n\n私が「経糸」を織りました。誰か「緯糸」を織って布を完成させてください。\n#IndustrialRun\n`;
+            const text = `未完成の布（経糸）を織りました。どなたか「緯糸」を織って、テキスタイルを完成させてくれませんか？\n#IndustrialRun #繊維産業研究報告会\n`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
         }
 
         // 3. LINE 招待シェア (経糸モード完了時)
         function shareInviteToLINE() {
             const url = getInviteUrl();
-            const text = `I wove the warp. Join to weave the weft.\n私が「経糸」を織りました。リンクを開いて「緯糸」を織ってください。`;
+            const text = `未完成の布（経糸）を織りました。リンクを開いて「緯糸」を織るのを手伝ってください！\n繊維産業研究報告会 -車と繊維-`;
             window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
         }
 
         // 3-2. LINE 報告 (緯糸モード完了時)
         function reportToHostLINE() {
-            const text = `The Weft is woven. The fabric is complete.\n\n緯糸（ヨコイト）を織りました。完成した布の画像を送ります。`;
+            const text = `緯糸（ヨコイト）を織り上げました。二人の糸が交差する、世界に一枚の布が完成です！\n\n繊維産業研究報告会 -車と繊維-`;
             // 画像は送れないのでテキストのみシェア画面を開く
             window.open(`https://social-plugins.line.me/lineit/share?text=${encodeURIComponent(text)}`, '_blank');
         }
@@ -2937,7 +2934,7 @@
         // 3-3. VIP 出席シェア
         function shareAttendanceToTwitter() {
             const id = document.getElementById('material-id').innerText;
-            const text = `I am attending the exhibition with my exclusive textile invite.\nTicket ID: ${id}\n\n繊維産業研究報告会に参加します。\n#IndustrialRun #20260228`;
+            const text = `繊維産業研究報告会 -車と繊維- に参加します。私だけの特別なテキスタイル・インビテーションが届きました。\n#IndustrialRun #20260228\nTicket ID: ${id}`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(window.location.href)}`, '_blank');
         }
 
