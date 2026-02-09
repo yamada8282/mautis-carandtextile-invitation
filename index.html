@@ -694,7 +694,7 @@
     </div>
 
     <div id="ui-layer">
-        <p id="caption">SYSTEM BOOTING...</p>
+        <p id="caption"></p>
         <div id="audio-controls">
             <div id="game-audio-btn" class="audio-btn" onclick="toggleAudio()">SOUND ON</div>
         </div>
@@ -1514,9 +1514,11 @@
                     };
 
                     playAudio(window.bgm);
+                    // ナレーション開始のタイミング（ミリ秒）。字幕とズレる場合はここを調整してください。
+                    const narrationDelay = 1000;
                     setTimeout(() => {
                         playAudio(window.narration);
-                    }, 1000);
+                    }, narrationDelay);
 
                     startGameTransition();
                 });
@@ -1626,7 +1628,7 @@
             // 字幕初期化
             const cap = document.getElementById('caption');
             if (cap) {
-                cap.innerHTML = "SYSTEM BOOTING...";
+                cap.innerHTML = "";
                 cap.style.opacity = '1';
             }
 
