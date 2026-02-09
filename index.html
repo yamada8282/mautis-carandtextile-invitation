@@ -240,8 +240,45 @@
             opacity: 0;
             pointer-events: none;
             z-index: 5000;
-            transition: none;
-            /* JS制御のためtransition削除 */
+        }
+
+        /* 起動時ローディングオーバーレイ */
+        #loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #fff;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            transition: opacity 0.5s;
+        }
+
+        #loading-bar-container {
+            width: 200px;
+            height: 2px;
+            background: #eee;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        #loading-progress {
+            width: 0%;
+            height: 100%;
+            background: #000;
+            transition: width 0.3s;
+        }
+
+        #loading-overlay-text {
+            font-family: 'DIN 2014', sans-serif;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            color: #888;
+            margin-top: 15px;
         }
 
         /* 結果画面 */
@@ -645,6 +682,17 @@
 
     <div id="scanlines"></div>
     <div id="whiteout-overlay"></div>
+
+    <!-- 起動時ローディング -->
+    <div id="loading-overlay">
+        <div style="font-family: 'DIN 2014', sans-serif; font-size: 14px; letter-spacing: 0.3em; font-weight: bold;">
+            INITIALIZING</div>
+        <div id="loading-bar-container">
+            <div id="loading-progress"></div>
+        </div>
+        <div id="loading-overlay-text">PRELOADING ASSETS...</div>
+    </div>
+
     <div id="ui-layer">
         <p id="caption">SYSTEM BOOTING...</p>
         <div id="audio-controls">
@@ -1417,27 +1465,19 @@
                 }
             });
 
-            // プリロード処理
-            preloadAssets().then(() => {
-                console.log('All assets loaded');
+            // --- VIP判定 & 復元を最優先で実行 (即時表示のため) ---
+            const isRestored = restoreFromStorage();
 
-                // 復元試行
-                if (restoreFromStorage()) {
-                    // 復元成功ならローディング即消し
-                    const loader = document.getElementById('loading-overlay');
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        loader.style.display = 'none';
-                    }
-                } else {
-                    // 通常起動
-                    const loader = document.getElementById('loading-overlay');
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => loader.style.display = 'none', 500);
-                    }
-                }
-            });
+            if (isRestored) {
+                console.log('Restored to result screen via storage');
+            } else {
+                console.log('App initialized on start screen');
+            }
+
+            // init時点ではアセットをロードせず、STARTボタンが押された時にロードを開始するように変更
+            // ただし、バックグラウンドでのロードも検討したが、ユーザーの要望により
+            // 「STARTを押してからロード」というフローに明確に分離する
+
 
 
 
@@ -1445,24 +1485,41 @@
 
             // スタート画面のボタン - シンプルかつ堅牢にリトライ再生
             document.getElementById('init-button').addEventListener('click', () => {
-                const playAudio = (audio) => {
-                    if (audio.readyState >= 3) { // HAVE_FUTURE_DATA
-                        audio.play().catch(e => console.warn('Play failed', e));
-                    } else {
-                        // 万が一ロードがまだならロードしてから再生
-                        audio.load();
-                        audio.play().catch(e => console.warn('Force load play failed', e));
+                // ローディングオーバーレイを表示
+                const loader = document.getElementById('loading-overlay');
+                if (loader) {
+                    loader.style.display = 'flex';
+                    loader.style.opacity = '1';
+                }
+
+                // プリロード開始
+                preloadAssets().then(() => {
+                    console.log('Asset loading completed post-START');
+
+                    // ローディング画面を隠す
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => {
+                            loader.style.display = 'none';
+                        }, 500);
                     }
-                };
 
-                playAudio(window.bgm);
-                // playAudio(window.motor); // スタートしてから再生に変更
+                    const playAudio = (audio) => {
+                        if (audio.readyState >= 3) { // HAVE_FUTURE_DATA
+                            audio.play().catch(e => console.warn('Play failed', e));
+                        } else {
+                            audio.load();
+                            audio.play().catch(e => console.warn('Force load play failed', e));
+                        }
+                    };
 
-                setTimeout(() => {
-                    playAudio(window.narration);
-                }, 2000);
+                    playAudio(window.bgm);
+                    setTimeout(() => {
+                        playAudio(window.narration);
+                    }, 1000);
 
-                startGameTransition();
+                    startGameTransition();
+                });
             });
 
             initRoad();
