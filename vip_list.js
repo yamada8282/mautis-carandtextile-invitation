@@ -14,5 +14,8 @@ window.VIP_LIST = {
     "vip007": { name: "AYA UEHARA", role: "Special Guest" },
     "vip008": { name: "TAKUTO KADOKURA", role: "Special Guest" },
     "vip009": { name: "TETSUYA HASHIMOTO", role: "Special Guest" },
-    "vip010": { name: "TOASTIE", role: "Special Guest" }
+    "vip010": { name: "TOASTIE", role: "Special Guest" },
+    "vip011": { name: "MIYOKO FURUKAWA", role: "Special Guest" },
+    "vip012": { name: "KEIKO HAMANISHI", role: "Special Guest" },
+    "vip013": { name: "TAMAE HIROKAWA", role: "Special Guest" }
 };
