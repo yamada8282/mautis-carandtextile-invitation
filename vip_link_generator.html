@@ -104,6 +104,20 @@
         </tbody>
     </table>
 
+    <!-- 一括エクスポートエリア -->
+    <div style="margin-top: 30px; padding: 20px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 5px;">
+        <h3 style="margin-top: 0;">📋 一括エクスポート</h3>
+        <p style="font-size: 0.9em; color: #666;">全VIPリンクをまとめてコピーできます。LINEやメールにそのまま貼り付けてください。</p>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+            <button class="copy-btn" style="padding: 10px 20px; font-size: 14px;" onclick="copyAll('with-name')">名前 +
+                リンク をコピー</button>
+            <button class="copy-btn" style="padding: 10px 20px; font-size: 14px; background: #6c757d;"
+                onclick="copyAll('link-only')">リンクのみコピー</button>
+        </div>
+        <textarea id="bulk-preview" readonly
+            style="width: 100%; height: 200px; font-family: monospace; font-size: 12px; resize: vertical; box-sizing: border-box;"></textarea>
+    </div>
+
     <script src="vip_list.js"></script>
     <script>
         function generateTable() {
@@ -137,6 +151,9 @@
             } catch (e) {
                 alert("エラー: " + e.message);
             }
+
+            // 初期プレビューを更新
+            updateBulkPreview('with-name');
         }
 
         function copyLink(btn, text) {
@@ -148,6 +165,42 @@
                     btn.innerText = originalText;
                     btn.style.background = "#007bff";
                 }, 2000);
+            });
+        }
+
+        function getBulkText(mode) {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const vipList = window.VIP_LIST;
+            if (!vipList) return '';
+
+            const lines = [];
+            for (const [id, data] of Object.entries(vipList)) {
+                const link = `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}vip=${id}`;
+                if (mode === 'link-only') {
+                    lines.push(link);
+                } else {
+                    lines.push(`${data.name}\n${link}`);
+                }
+            }
+            return lines.join('\n\n');
+        }
+
+        function updateBulkPreview(mode) {
+            document.getElementById('bulk-preview').value = getBulkText(mode);
+        }
+
+        function copyAll(mode) {
+            const text = getBulkText(mode);
+            updateBulkPreview(mode);
+            navigator.clipboard.writeText(text).then(() => {
+                const preview = document.getElementById('bulk-preview');
+                preview.style.borderColor = '#28a745';
+                preview.style.background = '#d4edda';
+                setTimeout(() => {
+                    preview.style.borderColor = '';
+                    preview.style.background = '';
+                }, 2000);
+                alert('✅ 全リンクをクリップボードにコピーしました！');
             });
         }
 
