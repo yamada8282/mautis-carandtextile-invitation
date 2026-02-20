@@ -641,23 +641,66 @@
 
     <!-- デバイス制限画面 -->
     <div id="device-block"
-        style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #fff; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;">
-        <div style="font-size: 24px; font-weight: bold; margin-bottom: 20px;">📱</div>
-        <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">スマートフォンでアクセスしてください</div>
-        <div style="font-size: 11px; color: #666; line-height: 1.6;">
+        style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #fff; z-index: 99999; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px 30px;">
+        <div
+            style="width: 40px; height: 68px; border: 2px solid #000; border-radius: 8px; margin-bottom: 30px; position: relative;">
+            <div
+                style="width: 16px; height: 2px; background: #000; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);">
+            </div>
+            <div
+                style="width: 8px; height: 8px; border: 1.5px solid #000; border-radius: 50%; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);">
+            </div>
+        </div>
+        <div
+            style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: #000; margin-bottom: 25px;">
+            Mobile Portrait Only</div>
+        <div style="width: 40px; height: 1px; background: #000; margin-bottom: 25px;"></div>
+        <div
+            style="font-family: 'Noto Sans JP', sans-serif; font-size: 12px; color: #333; line-height: 1.8; margin-bottom: 15px;">
             このコンテンツはスマートフォンの<br>縦画面専用です。
+        </div>
+        <div
+            style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 10px; color: #999; line-height: 1.8; letter-spacing: 0.05em;">
+            This content is optimized for<br>mobile devices in portrait mode.
         </div>
     </div>
 
     <!-- 横画面警告 -->
     <div id="rotate-block"
-        style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #fff; z-index: 9998; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;">
-        <div style="font-size: 24px; margin-bottom: 20px;">🔄</div>
-        <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px;">縦画面にしてください</div>
-        <div style="font-size: 11px; color: #666;">
-            端末を縦向きに回転してください
+        style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #fff; z-index: 99998; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px 30px;">
+        <div
+            style="width: 68px; height: 40px; border: 2px solid #000; border-radius: 8px; margin-bottom: 15px; position: relative;">
+            <div
+                style="width: 2px; height: 16px; background: #000; position: absolute; left: 6px; top: 50%; transform: translateY(-50%);">
+            </div>
+        </div>
+        <div style="font-size: 20px; margin-bottom: 15px; animation: rotateHint 2s ease-in-out infinite;">↻</div>
+        <div
+            style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: #000; margin-bottom: 25px;">
+            Rotate Your Device</div>
+        <div style="width: 40px; height: 1px; background: #000; margin-bottom: 25px;"></div>
+        <div
+            style="font-family: 'Noto Sans JP', sans-serif; font-size: 12px; color: #333; line-height: 1.8; margin-bottom: 15px;">
+            端末を縦向きに回転してください。
+        </div>
+        <div
+            style="font-family: 'DIN 2014', 'Barlow', sans-serif; font-size: 10px; color: #999; line-height: 1.8; letter-spacing: 0.05em;">
+            Please rotate your device<br>to portrait orientation.
         </div>
     </div>
+    <style>
+        @keyframes rotateHint {
+
+            0%,
+            100% {
+                transform: rotate(0deg);
+            }
+
+            50% {
+                transform: rotate(-90deg);
+            }
+        }
+    </style>
 
     <!-- スタート画面 -->
     <div id="start-screen">
@@ -1009,7 +1052,7 @@
         };
 
         // --- 開発モード（true: PCでもアクセス可能） ---
-        const DEV_MODE = true;  // 本番時は false に変更
+        const DEV_MODE = false;  // 本番時は false に変更
 
         // --- デバイス制限チェック ---
         function checkDeviceAccess() {
@@ -1017,12 +1060,19 @@
 
             const deviceBlock = document.getElementById('device-block');
             const rotateBlock = document.getElementById('rotate-block');
-            const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+            // モバイルデバイス判定（UA + タッチ + 画面幅の組み合わせ）
+            const mobileUA = /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isIPad = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            const isSmallScreen = Math.min(window.innerWidth, window.innerHeight) <= 480;
+            const isMobilePhone = (mobileUA && !isIPad) || (hasTouch && isSmallScreen && !isIPad);
             const isPortrait = window.innerHeight > window.innerWidth;
 
-            // PC検出
-            if (!isMobileDevice) {
+            // PC・iPad・大画面タブレット → ブロック
+            if (!isMobilePhone) {
                 deviceBlock.style.display = 'flex';
+                rotateBlock.style.display = 'none';
                 return;
             } else {
                 deviceBlock.style.display = 'none';
@@ -1039,7 +1089,9 @@
         // 初期チェック＆リサイズ時に再チェック
         checkDeviceAccess();
         window.addEventListener('resize', checkDeviceAccess);
-        window.addEventListener('orientationchange', checkDeviceAccess);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(checkDeviceAccess, 200);  // orientationchange後の遅延で正確な値を取得
+        });
 
         // --- Audio Control ---
         let isMuted = false;
